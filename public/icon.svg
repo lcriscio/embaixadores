@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="112" fill="#2C2724" />
+  <circle cx="256" cy="256" r="180" fill="#3D3733" opacity="0.4" />
+  <!-- Flame Outer -->
+  <path d="M256 100 C275 160 340 220 340 300 C340 360 302 410 256 410 C210 410 172 360 172 300 C172 220 237 160 256 100 Z" fill="#B86B43" />
+  <!-- Flame Core (Gold/Amber Glow) -->
+  <path d="M256 180 C268 220 300 260 300 310 C300 350 280 380 256 380 C232 380 212 350 212 310 C212 260 244 220 256 180 Z" fill="#F5CBA7" />
+  <!-- Candle wick base -->
+  <path d="M252 400 L260 400 L258 430 L254 430 Z" fill="#FAF7F2" opacity="0.8" />
+  <!-- Small Brand Sparkle -->
+  <circle cx="360" cy="140" r="10" fill="#FAF7F2" opacity="0.9" />
+  <circle cx="390" cy="180" r="6" fill="#FAF7F2" opacity="0.6" />
+</svg>

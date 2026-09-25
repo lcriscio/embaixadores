@@ -1,0 +1,43 @@
+{
+  "id": "/",
+  "name": "Can Candles Embaixadores",
+  "short_name": "Can Candles",
+  "description": "Programa oficial de embaixadores da Can Candles & Wellness. Treinamentos, comissionamento e acompanhamento de indicações.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2C2724",
+  "theme_color": "#2C2724",
+  "categories": ["business", "finance", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Área do Embaixador",
+      "short_name": "Embaixador",
+      "description": "Acesse seus relatórios e link exclusivo",
+      "url": "/?view=afiliado",
+      "icons": [{ "src": "/icon.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Área da Can Candles",
+      "short_name": "Can Candles",
+      "description": "Painel de controle e inteligência de vendas",
+      "url": "/?view=admin",
+      "icons": [{ "src": "/icon.svg", "sizes": "96x96" }]
+    }
+  ]
+}
