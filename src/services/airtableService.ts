@@ -1,4 +1,5 @@
 import { Afiliado, LeadIndicacao, AirtableConfig, AirtableSyncLog } from '../types';
+import { auth } from './firebase';
 
 const AIRTABLE_CONFIG_KEY = 'can_candles_airtable_config';
 const AIRTABLE_LOGS_KEY = 'can_candles_airtable_logs';
@@ -135,106 +136,72 @@ export function verificarTelefoneExistenteCRM(telefone: string): { existe: boole
 }
 
 /**
- * Envia o cadastro do Afiliado para a aba "Afiliados" do Airtable
+ * Envia o cadastro do Afiliado para a aba "Afiliados" do Airtable.
+ *
+ * A gravação acontece no servidor (/api/afiliados), que confere o ID Token do Firebase
+ * e só aceita usuários com telefone validado por SMS. O token do Airtable fica na Vercel.
  */
 export async function enviarAfiliadoAirtable(afiliado: Afiliado): Promise<{ success: boolean; recordId?: string; error?: string }> {
-  const config = getAirtableConfig();
-
-  const tipoDocEscolhido = afiliado.tipoDocumento || (afiliado.tipoPessoa === 'PJ' ? 'CNPJ' : 'CPF');
-
-  const fieldsPayload = {
-    // Mapeamento dos campos disponíveis no Airtable
-    "ID Embaixador": afiliado.id,
-    "Nome Completo": afiliado.nome,
-    "Escolha o tipo de documento para receber da Can (CPF ou CNPJ)": tipoDocEscolhido,
-    "Tipo de Documento": tipoDocEscolhido,
-    "Tipo": tipoDocEscolhido === 'CNPJ' ? 'Pessoa Jurídica (PJ)' : 'Pessoa Física (PF)',
-    "Escreva o número do documento": afiliado.documento,
-    "Documento": afiliado.documento,
-    "Documento (CPF/CNPJ)": afiliado.documento,
-    "Seu WhatsApp": afiliado.telefone,
-    "WhatsApp": afiliado.telefone,
-    "Telefone / WhatsApp": afiliado.telefone,
-    "Email Principal": afiliado.email,
-    "Email": afiliado.email,
-    "Tipo de Chave PIX": afiliado.tipoChavePix,
-    "Chave PIX para comissões": afiliado.chavePix,
-    "Chave PIX": afiliado.chavePix,
-    "Cidade": afiliado.cidade,
-    "UF": afiliado.estado,
-    "Estado": afiliado.estado,
-    "Instagram profissional / pessoal": afiliado.instagram || '',
-    "Instagram": afiliado.instagram || '',
-    "Link de Indicação": afiliado.linkAfiliado,
-    "Status": afiliado.status === 'ativo' ? 'Ativo' : afiliado.status === 'em_analise' ? 'Em Análise' : 'Suspenso',
-    "Taxa de Comissão": `${afiliado.taxaComissao}%`,
-    "Termos Aceitos": afiliado.termosAceitos ? 'Sim' : 'Não',
-    "Token SMS Validado": 'Sim',
-    "Data de Cadastro": new Date().toISOString().split('T')[0],
+  const payload = {
+    nome: afiliado.nome,
+    tipoDocumento: afiliado.tipoDocumento || (afiliado.tipoPessoa === 'PJ' ? 'CNPJ' : 'CPF'),
+    documento: afiliado.documento,
+    telefone: afiliado.telefone,
+    email: afiliado.email,
+    tipoChavePix: afiliado.tipoChavePix,
+    chavePix: afiliado.chavePix,
+    cidade: afiliado.cidade,
+    estado: afiliado.estado,
+    instagram: afiliado.instagram || '',
+    linkAfiliado: afiliado.linkAfiliado,
   };
 
-  if (config.personalAccessToken && config.personalAccessToken.trim().length > 10) {
-    try {
-      const url = `https://api.airtable.com/v0/${config.baseId}/${config.tableId}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.personalAccessToken.trim()}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          records: [{ fields: fieldsPayload }]
-        })
-      });
+  const registrarLog = (status: 'sucesso' | 'erro', detalhes: string) =>
+    addAirtableLog({
+      tipo: 'cadastro_afiliado',
+      afiliadoId: afiliado.id,
+      afiliadoNome: afiliado.nome,
+      status,
+      detalhes,
+      payload,
+    });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        const errMsg = errorData.error?.message || `Erro HTTP ${res.status}: ${res.statusText}`;
-        addAirtableLog({
-          tipo: 'cadastro_afiliado',
-          afiliadoId: afiliado.id,
-          afiliadoNome: afiliado.nome,
-          status: 'erro',
-          detalhes: `Falha ao sincronizar com Airtable: ${errMsg}`,
-          payload: fieldsPayload
-        });
-        return { success: false, error: errMsg };
-      }
-
-      const responseData = await res.json();
-      const recordId = responseData.records?.[0]?.id || 'rec_' + Date.now();
-
-      addAirtableLog({
-        tipo: 'cadastro_afiliado',
-        afiliadoId: afiliado.id,
-        afiliadoNome: afiliado.nome,
-        status: 'sucesso',
-        detalhes: `Afiliado inserido com sucesso na tabela "Afiliados" (${config.tableId}) com Record ID ${recordId}.`,
-        payload: fieldsPayload
-      });
-
-      config.ultimoSync = new Date().toISOString();
-      saveAirtableConfig(config);
-      return { success: true, recordId };
-    } catch (err: any) {
-      console.warn('Erro na requisição real do Airtable, ativando fallback resiliente:', err);
+  try {
+    if (!auth.currentUser) {
+      throw new Error('Nenhum usuário autenticado por SMS.');
     }
+    const idToken = await auth.currentUser.getIdToken(true);
+    const res = await fetch('/api/afiliados', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${idToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.success) {
+      const errMsg = data.error || `Erro HTTP ${res.status}`;
+      registrarLog('erro', `Falha ao sincronizar com Airtable: ${errMsg}`);
+      return { success: false, error: errMsg };
+    }
+
+    registrarLog(
+      'sucesso',
+      data.jaExistia
+        ? `Afiliado já existia na tabela "Afiliados" (Record ID ${data.recordId}).`
+        : `Afiliado inserido com sucesso na tabela "Afiliados" com Record ID ${data.recordId}.`,
+    );
+    const config = getAirtableConfig();
+    config.ultimoSync = new Date().toISOString();
+    saveAirtableConfig(config);
+    return { success: true, recordId: data.recordId };
+  } catch (err: any) {
+    const errMsg = err?.message || 'Erro de rede ao sincronizar com Airtable.';
+    registrarLog('erro', `Falha ao sincronizar com Airtable: ${errMsg}`);
+    return { success: false, error: errMsg };
   }
-
-  // Fallback simulado
-  const simulatedRecordId = 'rec_' + Math.random().toString(36).substring(2, 11);
-  addAirtableLog({
-    tipo: 'cadastro_afiliado',
-    afiliadoId: afiliado.id,
-    afiliadoNome: afiliado.nome,
-    status: 'sucesso',
-    detalhes: `[Airtable Afiliados] Dados preparados e sincronizados para a aba "Afiliados" (Base: ${config.baseId}). ID Gerado: ${simulatedRecordId}.`,
-    payload: fieldsPayload
-  });
-
-  config.ultimoSync = new Date().toISOString();
-  saveAirtableConfig(config);
-  return { success: true, recordId: simulatedRecordId };
 }
 
 /**
