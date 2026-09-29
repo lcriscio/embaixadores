@@ -23,7 +23,17 @@ import {
 type Estado = 'formulario' | 'enviando' | 'criado' | 'existente';
 
 const MENSAGEM_JA_CADASTRADO =
-  'Parece que este número de contato já está cadastrado em nossa base. Nosso time entrará em contato com você para falar sobre a Can novamente, combinado? Obrigado! Equipe Can Candles.';
+  'Parece que este número de contato já está cadastrado em nossa base. Clique no botão abaixo para iniciar uma conversa com o nosso time no WhatsApp e falar sobre a Can novamente, combinado? Obrigado! Equipe Can Candles.';
+
+const WHATSAPP_CAN = '5511947036046';
+
+function linkWhatsAppCan(nome: string): string {
+  const primeiroNome = nome.trim().split(' ')[0];
+  const texto = primeiroNome
+    ? `Olá! Sou ${primeiroNome} e quero conhecer a Can Candles.`
+    : 'Olá! Quero conhecer a Can Candles.';
+  return `https://wa.me/${WHATSAPP_CAN}?text=${encodeURIComponent(texto)}`;
+}
 
 /** Código do embaixador: queroconhecer.cancandles.com.br/CAN-4723, /indicacao/CAN-4723 ou ?ref=CAN-4723 */
 function lerCodigoEmbaixador(): string {
@@ -152,6 +162,15 @@ export const IndicacaoPage: React.FC = () => {
         <div className="py-6 text-center" role="status">
           <MessageCircle className="mx-auto h-12 w-12 text-terracota" strokeWidth={1.5} />
           <p className="mt-4 text-base leading-relaxed text-tinta">{MENSAGEM_JA_CADASTRADO}</p>
+          <a
+            href={linkWhatsAppCan(nome)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#1FA855] px-6 py-4 text-base font-semibold text-white shadow-sm transition hover:bg-[#178A45] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#1FA855]/30"
+          >
+            <MessageCircle className="h-5 w-5" /> Conversar no WhatsApp
+          </a>
+          <p className="mt-2 text-xs text-cinza">+55 (11) 94703-6046</p>
         </div>
       ) : (
         <form onSubmit={enviar} noValidate>
