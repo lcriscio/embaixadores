@@ -2,15 +2,25 @@
   "redirects": [
     {
       "source": "/",
-      "has": [{ "type": "host", "value": "queroconhecer.cancandles.com.br" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "queroconhecer.cancandles.com.br"
+        }
+      ],
       "destination": "/conheca",
       "permanent": false
     }
   ],
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
-      "has": [{ "type": "host", "value": "queroconhecer.cancandles.com.br" }],
+      "source": "/((?!api/|assets/).*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "queroconhecer.cancandles.com.br"
+        }
+      ],
       "destination": "/indicacao.html"
     },
     {
@@ -18,8 +28,19 @@
       "destination": "/indicacao.html"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|assets/).*)",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
     }
   ]
 }
