@@ -30,6 +30,7 @@ import {
   Layers,
   Award
 } from 'lucide-react';
+import { linkIndicacao } from '../utils/linkIndicacao';
 
 interface AmbassadorAreaProps {
   afiliado: Afiliado;
@@ -107,7 +108,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
 
   // Link curto rastreado com parâmetros UTM oficiais para o Embaixador
   const linkComUtm = useMemo(() => {
-    return `https://cancandles.com.br/?utm_source=${afiliado.id}`;
+    return linkIndicacao(afiliado.id);
   }, [afiliado.id]);
 
   const handleCopyLink = () => {
@@ -1176,7 +1177,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                     </span>
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-[#E8DFD4] font-mono text-xs text-[#2C2724] select-all max-w-2xl break-all">
-                    {afiliado.linkAfiliado}
+                    {linkComUtm}
                   </div>
                   <p className="text-[11px] text-[#7A7169]">
                     Atribuição automática e imediata de todos os contatos que chegarem ao site através deste link.
@@ -1194,7 +1195,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
 
                   <a
                     href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                      `Olá! Conheça a Can Candles & Wellness, criadora de identidades olfativas exclusivas e velas aromáticas vegetais personalizadas para marcas e eventos: ${afiliado.linkAfiliado}`
+                      `Olá! Conheça a Can Candles & Wellness, criadora de identidades olfativas exclusivas e velas aromáticas vegetais personalizadas para marcas e eventos: ${linkComUtm}`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -1221,7 +1222,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                     <span className="text-[11px] font-semibold text-[#B86B43] uppercase">Para Empresas & RH / Marketing</span>
                     <button
                       onClick={() => {
-                        const text = `Olá! Tudo bem? Lembrei de você porque sei como a sua marca valoriza experiências memoráveis com clientes e equipe. Conheci a Can Candles & Wellness, que desenvolve identidades olfativas exclusivas e velas corporativas personalizadas com ceras 100% vegetais. Eles criam desde o cheiro exclusivo da marca até lotes para eventos e presentes corporativos de fim de ano. Dá uma olhada no projeto deles: ${afiliado.linkAfiliado}`;
+                        const text = `Olá! Tudo bem? Lembrei de você porque sei como a sua marca valoriza experiências memoráveis com clientes e equipe. Conheci a Can Candles & Wellness, que desenvolve identidades olfativas exclusivas e velas corporativas personalizadas com ceras 100% vegetais. Eles criam desde o cheiro exclusivo da marca até lotes para eventos e presentes corporativos de fim de ano. Dá uma olhada no projeto deles: ${linkComUtm}`;
                         navigator.clipboard.writeText(text);
                         alert('Script copiado com seu link!');
                       }}
@@ -1231,7 +1232,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                     </button>
                   </div>
                   <p className="text-xs text-[#524942] italic leading-relaxed bg-[#FAF7F2] p-3 rounded-lg border border-[#E8DFD4]">
-                    "Olá! Lembrei de você porque sei como sua marca valoriza experiências com clientes e parceiros. A <strong>Can Candles & Wellness</strong> cria identidades olfativas exclusivas e velas corporativas personalizadas com ceras 100% vegetais. Dê uma olhada no portfólio deles: {afiliado.linkAfiliado}"
+                    "Olá! Lembrei de você porque sei como sua marca valoriza experiências com clientes e parceiros. A <strong>Can Candles & Wellness</strong> cria identidades olfativas exclusivas e velas corporativas personalizadas com ceras 100% vegetais. Dê uma olhada no portfólio deles: {linkComUtm}"
                   </p>
                 </div>
 
@@ -1241,7 +1242,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                     <span className="text-[11px] font-semibold text-[#5B6E58] uppercase">Para Casamentos, Noivas & Eventos</span>
                     <button
                       onClick={() => {
-                        const text = `Olá! Sabia que agora os casamentos e eventos mais elegantes estão criando a 'Assinatura Olfativa' da festa? A Can Candles desenvolve o perfume exclusivo do casal e materializa em difusores e velas como lembrança inesquecível para os convidados. Veja aqui os detalhes: ${afiliado.linkAfiliado}`;
+                        const text = `Olá! Sabia que agora os casamentos e eventos mais elegantes estão criando a 'Assinatura Olfativa' da festa? A Can Candles desenvolve o perfume exclusivo do casal e materializa em difusores e velas como lembrança inesquecível para os convidados. Veja aqui os detalhes: ${linkComUtm}`;
                         navigator.clipboard.writeText(text);
                         alert('Script copiado com seu link!');
                       }}
@@ -1251,7 +1252,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                     </button>
                   </div>
                   <p className="text-xs text-[#524942] italic leading-relaxed bg-[#FAF7F2] p-3 rounded-lg border border-[#E8DFD4]">
-                    "Olá! Sabia que os casamentos e eventos de alto padrão estão criando a 'Assinatura Olfativa' da celebração? A <strong>Can Candles</strong> cria a fragrância personalizada do evento e materializa em velas aromáticas como lembrança inesquecível: {afiliado.linkAfiliado}"
+                    "Olá! Sabia que os casamentos e eventos de alto padrão estão criando a 'Assinatura Olfativa' da celebração? A <strong>Can Candles</strong> cria a fragrância personalizada do evento e materializa em velas aromáticas como lembrança inesquecível: {linkComUtm}"
                   </p>
                 </div>
 

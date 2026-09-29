@@ -1,0 +1,142 @@
+/**
+ * Vercel Function: POST /api/indicacoes
+ *
+ * Recebe o formulário da landing page de indicação (queroconhecer.cancandles.com.br/CAN-XXXX)
+ * e cria o contato na tabela "Contatos" do Airtable.
+ *
+ * Regras:
+ * - A chave do contato é o WhatsApp. Se o número já existir em Contatos, nada é criado nem
+ *   alterado e o embaixador NÃO recebe a atribuição (resposta { status: 'existente' }).
+ * - Contato novo: Canal de entrada e Origem detalhada = "Formulário de Afiliado" e o campo
+ *   "[ Autocomplete ] Afiliado associado a esse Contato" aponta para o afiliado do link.
+ */
+
+declare const process: { env: Record<string, string | undefined> };
+
+const AIRTABLE_BASE_ID = 'appza7P3RBl5OYQZv';
+const CONTATOS_TABLE_ID = 'tblHsfwLoB7CiG6Ji';
+const AFILIADOS_TABLE_ID = 'tbldNC77piIOLyfQc';
+
+// IDs dos campos da tabela "Contatos"
+const C = {
+  nome: 'fldqi3mAhZht7BJ93', // [ Autocomplete/Preencher ] Nome do Contato
+  whatsapp: 'fldz1BRWrWmp5SkQ6', // [ Autocomplete/Preencher ] WhatsApp
+  canalEntrada: 'fldC1K4KVp3NVeB1K', // [ Autocomplete/Preencher ] Canal de entrada
+  origemDetalhada: 'fldvByfQ5h108g3rR', // [ Autocomplete/Preencher ] Origem detalhada
+  dataEntrada: 'fldWWNbN9BZdmjfFb', // [ Autocomplete/Preencher ] Data de entrada
+  afiliado: 'fldVVCWEEe3Ag4b13', // [ Autocomplete ] Afiliado associado a esse Contato
+};
+const ORIGEM = 'Formulário de Afiliado';
+
+function json(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+async function airtable(tableId: string, path: string, init: RequestInit = {}) {
+  const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tableId}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${process.env.AIRTABLE_PAT}`,
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error?.message || body?.error?.type || `Airtable HTTP ${res.status}`);
+  return body;
+}
+
+/** DDD + número (10 ou 11 dígitos), aceitando que a pessoa digite o 55 por engano. */
+function numeroNacional(valor: string): string {
+  const d = valor.replace(/\D/g, '');
+  return d.startsWith('55') && d.length >= 12 ? d.slice(2) : d;
+}
+
+/**
+ * Variações do mesmo celular para checar duplicidade: parte da base (WATI) guarda números
+ * sem o nono dígito, ex. 553192099241 para (31) 99209-9241.
+ */
+function variacoes(nacional: string): string[] {
+  const ddd = nacional.slice(0, 2);
+  const numero = nacional.slice(2);
+  const lista = [nacional];
+  if (numero.length === 9 && numero.startsWith('9')) lista.push(ddd + numero.slice(1));
+  if (numero.length === 8 && /^[6-9]/.test(numero)) lista.push(`${ddd}9${numero}`);
+  return lista;
+}
+
+export async function POST(request: Request): Promise<Response> {
+  if (!process.env.AIRTABLE_PAT) {
+    return json(500, { status: 'erro', error: 'AIRTABLE_PAT não configurado na Vercel.' });
+  }
+
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return json(400, { status: 'erro', error: 'JSON inválido.' });
+  }
+
+  // Anti-spam: campo invisível preenchido ou envio instantâneo = robô. Responde como sucesso.
+  if (typeof body.website === 'string' && body.website.trim()) return json(200, { status: 'criado' });
+  if (typeof body.tempoMs === 'number' && body.tempoMs < 2500) return json(200, { status: 'criado' });
+
+  const nome = typeof body.nome === 'string' ? body.nome.trim().replace(/\s+/g, ' ').slice(0, 120) : '';
+  const nacional = numeroNacional(typeof body.whatsapp === 'string' ? body.whatsapp : '');
+  const codigo = typeof body.codigo === 'string' ? body.codigo.trim().toUpperCase() : '';
+
+  if (nome.length < 2) {
+    return json(400, { status: 'erro', error: 'Informe seu nome.' });
+  }
+  if (!/^[1-9]{2}\d{8,9}$/.test(nacional)) {
+    return json(400, { status: 'erro', error: 'Informe um WhatsApp válido com DDD.' });
+  }
+
+  try {
+    // 1. WhatsApp já cadastrado? (compara pelo campo normalizado "+55...")
+    const condicoes = variacoes(nacional)
+      .map((n) => `{[ Autocomplete ] WhatsApp do Contato Ajustado}='+55${n}'`)
+      .join(',');
+    const existentes = await airtable(
+      CONTATOS_TABLE_ID,
+      `?maxRecords=1&fields%5B%5D=${C.whatsapp}&filterByFormula=${encodeURIComponent(`OR(${condicoes})`)}`,
+    );
+    if (existentes.records?.length) {
+      return json(200, { status: 'existente' });
+    }
+
+    // 2. Afiliado do link (o código CAN-XXXX está no "Link Único do Afiliado")
+    let afiliadoId: string | null = null;
+    if (/^CAN-\d{3,6}$/.test(codigo)) {
+      const formula = `REGEX_MATCH({Link Único do Afiliado}, '${codigo}($|[^0-9])')`;
+      const afiliados = await airtable(
+        AFILIADOS_TABLE_ID,
+        `?maxRecords=1&fields%5B%5D=fldwx4v1sIO8fvFSn&filterByFormula=${encodeURIComponent(formula)}`,
+      );
+      afiliadoId = afiliados.records?.[0]?.id || null;
+      if (!afiliadoId) console.warn(`Indicação com código sem afiliado correspondente: ${codigo}`);
+    }
+
+    // 3. Cria o contato
+    const fields: Record<string, unknown> = {
+      [C.nome]: nome,
+      [C.whatsapp]: `55${nacional}`,
+      [C.canalEntrada]: ORIGEM,
+      [C.origemDetalhada]: ORIGEM,
+      [C.dataEntrada]: new Date().toISOString(),
+    };
+    if (afiliadoId) fields[C.afiliado] = [afiliadoId];
+
+    await airtable(CONTATOS_TABLE_ID, '', {
+      method: 'POST',
+      body: JSON.stringify({ records: [{ fields }] }),
+    });
+    return json(201, { status: 'criado' });
+  } catch (e: any) {
+    console.error('Erro Airtable /api/indicacoes:', e);
+    return json(502, { status: 'erro', error: 'Não conseguimos registrar agora. Tente novamente em instantes.' });
+  }
+}

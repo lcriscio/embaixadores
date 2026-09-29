@@ -1,6 +1,7 @@
 import { Afiliado, LeadIndicacao, NotaFiscal, CampanhaConfig, AdminInvite } from '../types';
 import { INITIAL_AFILIADOS, INITIAL_LEADS, INITIAL_NOTAS_FISCAIS, INITIAL_CAMPANHA, CLIENTES_HISTORICO_CAN_CANDLES } from '../data/mockData';
 import { enviarAfiliadoAirtable, enviarContatoAirtable, enviarPedidoAirtable, normalizarWhatsApp } from './airtableService';
+import { linkIndicacao } from '../utils/linkIndicacao';
 
 const STORAGE_KEYS = {
   AFILIADOS: 'can_candles_afiliados',
@@ -227,7 +228,7 @@ export async function cadastrarNovoAfiliado(dados: {
     cidade: dados.cidade.trim(),
     estado: dados.estado.trim().toUpperCase(),
     instagram: dados.instagram?.trim(),
-    linkAfiliado: `https://cancandles.com.br/?utm_source=${newId}`,
+    linkAfiliado: linkIndicacao(newId),
     codigoCupom: cupom,
     status: 'ativo',
     taxaComissao: campanha.taxaComissaoPadrao || 10, // Dinâmico com a taxa da Can Candles

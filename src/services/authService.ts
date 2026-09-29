@@ -22,6 +22,7 @@ import { auth, googleProvider, db } from './firebase';
 import { Afiliado } from '../types';
 import { getAfiliados, saveAfiliados, setCurrentAfiliadoId, getCampanhaConfig } from './storageService';
 import { enviarAfiliadoAirtable } from './airtableService';
+import { linkIndicacao } from '../utils/linkIndicacao';
 
 export interface AuthState {
   user: User | null;
@@ -104,7 +105,7 @@ export async function cadastrarEmbaixadorFirebase(
     cidade: dados.cidade.trim(),
     estado: dados.estado.trim().toUpperCase(),
     instagram: dados.instagram?.trim(),
-    linkAfiliado: `https://cancandles.com.br/?utm_source=${newId}`,
+    linkAfiliado: linkIndicacao(newId),
     codigoCupom: cupom,
     status: 'ativo',
     taxaComissao: campanha.taxaComissaoPadrao || 10,

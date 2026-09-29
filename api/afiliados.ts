@@ -207,7 +207,7 @@ export async function POST(request: Request): Promise<Response> {
     !tipoPix && 'tipoChavePix',
     !cidade && 'cidade',
     !UFS.has(uf) && 'estado',
-    !/^https:\/\/(www\.)?cancandles\.com\.br\//.test(link) && 'linkAfiliado',
+    !/^https:\/\/([a-z0-9-]+\.)*cancandles\.com\.br\//.test(link) && 'linkAfiliado',
   ].filter(Boolean);
   if (faltando.length) {
     return json(400, { success: false, error: `Campos inválidos: ${faltando.join(', ')}` });
