@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Afiliado } from '../types';
 import { Check, Copy, Flame, Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { linkIndicacao } from '../utils/linkIndicacao';
 
 interface WelcomeModalProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
   if (!isOpen) return null;
 
   // Link enxuto com UTM correta conforme solicitado pelo usuário
-  const linkComUtm = `https://cancandles.com.br/?utm_source=${afiliado.id}`;
+  const linkComUtm = linkIndicacao(afiliado.id);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(linkComUtm);

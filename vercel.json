@@ -1,5 +1,22 @@
 {
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "queroconhecer.cancandles.com.br" }],
+      "destination": "/conheca",
+      "permanent": false
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "has": [{ "type": "host", "value": "queroconhecer.cancandles.com.br" }],
+      "destination": "/indicacao.html"
+    },
+    {
+      "source": "/indicacao/:codigo",
+      "destination": "/indicacao.html"
+    },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"

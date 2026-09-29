@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --color-creme: #FAF7F2;
+  --color-areia: #F3ECE2;
+  --color-linho: #E3D7C9;
+  --color-tinta: #2C2724;
+  --color-cafe: #665D56;
+  --color-cinza: #7A7169;
+  --color-terracota: #B86B43;
+  --color-terracota-escuro: #9A5634;
+  --color-mel: #D9A07D;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-creme);
+    color: var(--color-tinta);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-mel);
+    color: var(--color-tinta);
+  }
+}
+
+/* Brilho suave de chama atrás do hero */
+.brilho {
+  background:
+    radial-gradient(40rem 22rem at 78% 18%, rgba(217, 160, 125, 0.28), transparent 70%),
+    radial-gradient(30rem 18rem at 10% 90%, rgba(184, 107, 67, 0.10), transparent 70%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chama {
+    animation: tremular 3.2s ease-in-out infinite;
+    transform-origin: 50% 100%;
+  }
+}
+
+@keyframes tremular {
+  0%, 100% { transform: scaleY(1) rotate(0deg); }
+  30% { transform: scaleY(1.06) rotate(-1.5deg); }
+  60% { transform: scaleY(0.97) rotate(1deg); }
+}
