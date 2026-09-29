@@ -1,0 +1,16 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Arquivos gerados pelo AI Studio
+assets.zip
+dist.zip
+dist.tar.gz
+public/assets.zip
+public/dist.zip
+public/projeto-completo.zip

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Afiliado, CampanhaConfig } from '../types';
-import { cadastrarNovoAfiliado } from '../services/storageService';
+import { cadastrarEmbaixadorFirebase } from '../services/authService';
 import { CommissionCalculator } from './CommissionCalculator';
 import { WelcomeModal } from './WelcomeModal';
 import { TermsModal } from './TermsModal';
@@ -21,18 +21,21 @@ import {
   ChevronDown,
   Check,
   Smartphone,
-  Layers
+  Layers,
+  LogIn
 } from 'lucide-react';
 
 interface LandingPageProps {
   onAfiliadoCadastrado: (afiliado: Afiliado) => void;
   onGoToAreaLogada: () => void;
+  onOpenAuthModal?: () => void;
   campanha?: CampanhaConfig;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onAfiliadoCadastrado,
   onGoToAreaLogada,
+  onOpenAuthModal,
   campanha,
 }) => {
   const taxaComissao = campanha?.taxaComissaoPadrao || 10;
@@ -43,6 +46,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [documento, setDocumento] = useState('');
   const [telefone, setTelefone] = useState('');
   const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
   const [tipoChavePix, setTipoChavePix] = useState<'CPF' | 'CNPJ' | 'EMAIL' | 'TELEFONE' | 'ALEATORIA'>('CPF');
   const [chavePix, setChavePix] = useState('');
   const [cidade, setCidade] = useState('');
@@ -53,9 +57,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   // Flow State
   const [loading, setLoading] = useState(false);
   const [novoAfiliado, setNovoAfiliado] = useState<Afiliado | null>(null);
-  const [showSmsModal, setShowSmsModal] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showSmsModal, setShowSmsModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const UFS_BRASIL = [
@@ -106,11 +110,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       return;
     }
     if (!telefone.trim() || telefone.replace(/\D/g, '').length < 10) {
-      setErrorMsg('Por favor, informe um WhatsApp válido com DDD.');
+      setErrorMsg('Por favor, informe um WhatsApp/telefone válido com DDD.');
       return;
     }
     if (!email.trim() || !email.includes('@')) {
       setErrorMsg('Por favor, informe um e-mail principal válido.');
+      return;
+    }
+    if (!senha.trim() || senha.length < 6) {
+      setErrorMsg('Por favor, defina uma senha com no mínimo 6 caracteres para seus próximos acessos ao painel.');
       return;
     }
     if (!chavePix.trim()) {
@@ -126,7 +134,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       return;
     }
 
-    // Abre o modal de verificação SMS obrigatório
+    // Abre a etapa obrigatória de autenticação por Token SMS
     setShowSmsModal(true);
   };
 
@@ -136,7 +144,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     setErrorMsg('');
 
     try {
-      const criado = await cadastrarNovoAfiliado({
+      const res = await cadastrarEmbaixadorFirebase({
         tipoPessoa: tipoDocumento === 'CNPJ' ? 'PJ' : 'PF',
         nome: nome.trim(),
         razaoSocial: tipoDocumento === 'CNPJ' ? nome.trim() : undefined,
@@ -148,19 +156,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         cidade: cidade.trim(),
         estado: estado.trim().toUpperCase(),
         instagram: instagram.trim() || undefined,
-        aceitouTermosNoForm: true,
-      });
+        senha: senha.trim() || undefined,
+        tokenSmsValidado: true,
+      }, false);
 
-      // Atualiza estado do novo embaixador
-      criado.tokenSmsValidado = true;
-      setNovoAfiliado(criado);
+      setNovoAfiliado(res.ambassador);
       setShowWelcomeModal(true);
-      onAfiliadoCadastrado(criado);
+      onAfiliadoCadastrado(res.ambassador);
     } catch (err: any) {
-      setErrorMsg('Ocorreu um erro ao sincronizar seu cadastro. Tente novamente.');
+      if (err.code === 'auth/email-already-in-use') {
+        setErrorMsg('Este e-mail já está cadastrado. Clique em "Já sou Embaixador" no topo para entrar.');
+      } else {
+        setErrorMsg(err.message || 'Ocorreu um erro ao finalizar o cadastro. Verifique seus dados e tente novamente.');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleRegister = async () => {
+    setErrorMsg('');
+    if (!nome.trim() || !documento.trim() || !telefone.trim() || !chavePix.trim()) {
+      setErrorMsg('Por favor, preencha Nome, Documento, WhatsApp e Chave PIX antes de autenticar.');
+      return;
+    }
+
+    setShowSmsModal(true);
   };
 
   return (
@@ -315,21 +336,39 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       Inscrição de Embaixadores
                     </span>
                     <span className="text-[10px] text-[#5B6E58] bg-[#EEF3ED] px-2.5 py-0.5 rounded-full font-semibold">
-                      Validação por SMS
+                      Acesso Imediato
                     </span>
                   </div>
                   <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#2C2724] mt-1">
                     Crie sua Conta Oficial
                   </h3>
                   <p className="text-xs text-[#7A7169] mt-1">
-                    Preencha o formulário único abaixo para receber seu código SMS e gerar seu link exclusivo.
+                    Preencha o formulário único abaixo para criar seu acesso seguro e gerar seu link e cupom exclusivos.
                   </p>
                 </div>
 
                 {errorMsg && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
-                    <span className="font-semibold">Atenção:</span>
-                    <span>{errorMsg}</span>
+                  <div className="mb-4 p-3.5 bg-amber-50/90 border border-amber-200 text-amber-900 text-xs rounded-2xl space-y-2">
+                    <div className="flex items-start gap-2">
+                      <span className="font-bold text-[#B86B43] shrink-0">Atenção:</span>
+                      <span className="leading-relaxed">{errorMsg}</span>
+                    </div>
+                    {errorMsg.includes('Google') && (
+                      <button
+                        type="button"
+                        onClick={handleGoogleRegister}
+                        disabled={loading}
+                        className="w-full mt-1 py-2 px-3 rounded-xl bg-white border border-amber-300 hover:bg-amber-100/50 text-[#2C2724] text-[11px] font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                        </svg>
+                        <span>Cadastrar agora com Conta Google (1 clique)</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -517,6 +556,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     />
                   </div>
 
+                  {/* 11. Senha de Acesso ao Painel */}
+                  <div>
+                    <label className="text-xs font-medium text-[#2C2724] block mb-1">
+                      Crie sua senha para acessos futuros <span className="text-[#B86B43] font-bold">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-[#A39990] absolute left-3.5 top-2.5" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="Mínimo de 6 caracteres"
+                        value={senha}
+                        onChange={(e) => setSenha(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2 text-xs rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#B86B43] transition-all"
+                      />
+                    </div>
+                    <p className="text-[10px] text-[#7A7169] mt-0.5">Após validar o SMS hoje, você usará seu e-mail e esta senha para entrar no painel nas próximas vezes.</p>
+                  </div>
+
                   {/* Terms acceptance check */}
                   <div className="pt-1.5">
                     <label className="flex items-start gap-2.5 cursor-pointer select-none">
@@ -535,7 +593,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         >
                           Termos do Programa
                         </button>
-                        , comissão de {taxaComissao}% paga após 100% liquidado do cliente, emissão de NF até dia 10 e sincronização com Airtable.
+                        , comissão de {taxaComissao}% paga após 100% liquidado do cliente, emissão de NF até dia 10 e sincronização segura com Airtable e Firebase.
                       </span>
                     </label>
                   </div>
@@ -546,14 +604,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     disabled={loading}
                     className="w-full py-3.5 px-4 rounded-xl bg-[#B86B43] hover:bg-[#A35C36] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50 mt-2"
                   >
-                    <Smartphone className="w-4 h-4" />
-                    <span>Avançar para Autenticação por SMS</span>
-                    <ArrowRight className="w-4 h-4" />
+                    {loading ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <Smartphone className="w-4 h-4" />
+                        <span>Receber Token SMS e Finalizar Inscrição</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
 
-                  <p className="text-[10px] text-center text-[#8C827A] pt-1">
-                    🔒 Após validação do token SMS, um novo record é gerado na tabela <strong>Afiliados</strong> do Airtable.
-                  </p>
+                  {/* Google Alternative Registration */}
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={handleGoogleRegister}
+                      disabled={loading}
+                      className="w-full py-2.5 px-3 rounded-xl border border-[#D9CFC4] bg-white hover:bg-[#FAF7F2] text-[11px] font-semibold text-[#2C2724] flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                      </svg>
+                      <span>Ou cadastrar com Google (1 clique)</span>
+                    </button>
+                  </div>
+
+                  {/* Link to login */}
+                  <div className="pt-2 text-center text-xs text-[#7A7169]">
+                    <span>Já é um embaixador cadastrado? </span>
+                    <button
+                      type="button"
+                      onClick={onOpenAuthModal}
+                      className="text-[#B86B43] font-bold hover:underline cursor-pointer"
+                    >
+                      Entrar no painel
+                    </button>
+                  </div>
 
                 </form>
 
@@ -741,20 +831,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               >
                 Termos de Uso do Programa
               </button>
+              <span>·</span>
+              <button
+                type="button"
+                onClick={() => onOpenAuthModal?.()}
+                className="text-[#7A7169] hover:text-[#2C2724] font-medium cursor-pointer"
+                title="Acesso exclusivo para administradores Can Candles"
+              >
+                Acesso Diretoria
+              </button>
             </div>
           </div>
         </div>
       </footer>
-
-      {/* SMS Verification Modal */}
-      {showSmsModal && (
-        <SmsTokenModal
-          telefone={telefone}
-          nome={nome}
-          onVerified={handleSmsVerified}
-          onCancel={() => setShowSmsModal(false)}
-        />
-      )}
 
       {/* Terms of Use Modal */}
       <TermsModal
@@ -764,6 +853,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         readOnly={true}
         onClose={() => setShowTermsModal(false)}
       />
+
+      {/* SMS Token Verification Modal */}
+      {showSmsModal && (
+        <SmsTokenModal
+          telefone={telefone}
+          nome={nome}
+          onVerified={handleSmsVerified}
+          onCancel={() => setShowSmsModal(false)}
+        />
+      )}
 
       {/* Welcome Modal when registration succeeds */}
       {novoAfiliado && (

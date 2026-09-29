@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Afiliado } from '../types';
-import { Check, Copy, Flame, Mail, ExternalLink, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Check, Copy, Flame, Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface WelcomeModalProps {
@@ -34,8 +34,11 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Link enxuto com UTM correta conforme solicitado pelo usuário
+  const linkComUtm = `https://cancandles.com.br/?utm_source=${afiliado.id}`;
+
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(afiliado.linkAfiliado);
+    navigator.clipboard.writeText(linkComUtm);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
   };
@@ -76,7 +79,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
                 : 'border-transparent text-[#7A7169] hover:text-[#2C2724]'
             }`}
           >
-            Seu Link Exclusivo & Cupom
+            Seu Link de Indicação
           </button>
           <button
             onClick={() => setActiveTab('email')}
@@ -97,18 +100,18 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
           {activeTab === 'link' ? (
             <div className="space-y-5">
               
-              {/* Box 1: Referral Link */}
+              {/* Box 1: Referral Link curto com UTM */}
               <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8DFD4]">
                 <label className="text-xs font-semibold text-[#2C2724] block mb-1.5">
                   Seu Link Exclusivo para Indicação de Clientes:
                 </label>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-white border border-[#E3D7C9] rounded-lg px-3 py-2 text-xs font-mono text-[#2C2724] select-all truncate">
-                    {afiliado.linkAfiliado}
+                  <div className="flex-1 bg-white border border-[#E3D7C9] rounded-lg px-3 py-2.5 text-xs font-mono text-[#2C2724] select-all truncate font-semibold" title={linkComUtm}>
+                    {linkComUtm}
                   </div>
                   <button
                     onClick={handleCopyLink}
-                    className={`px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+                    className={`px-4 py-2.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                       copiedLink
                         ? 'bg-[#5B6E58] text-white'
                         : 'bg-[#B86B43] hover:bg-[#A35C36] text-white'
@@ -128,34 +131,8 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
                   </button>
                 </div>
                 <p className="text-[11px] text-[#7A7169] mt-2">
-                  Envie este link para arquitetos, cerimonialistas, empresas e amigos que querem criar sua identidade olfativa ou velas corporativas.
+                  Envie este link para arquitetos, empresas, cerimonialistas e contatos que queiram desenvolver sua identidade olfativa ou velas personalizadas.
                 </p>
-              </div>
-
-              {/* Box 2: Cupom & ID */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3.5 rounded-xl border border-[#E8DFD4] bg-white">
-                  <span className="text-[10px] uppercase font-semibold text-[#7A7169] block">
-                    Seu Cupom de Referência
-                  </span>
-                  <div className="font-mono text-base font-bold text-[#B86B43] mt-0.5">
-                    {afiliado.codigoCupom}
-                  </div>
-                  <p className="text-[10px] text-[#7A7169] mt-0.5">
-                    Garante a sua comissão mesmo se comprarem direto
-                  </p>
-                </div>
-                <div className="p-3.5 rounded-xl border border-[#E8DFD4] bg-white">
-                  <span className="text-[10px] uppercase font-semibold text-[#7A7169] block">
-                    ID de Embaixador
-                  </span>
-                  <div className="font-mono text-base font-bold text-[#2C2724] mt-0.5">
-                    {afiliado.id}
-                  </div>
-                  <p className="text-[10px] text-[#7A7169] mt-0.5">
-                    Identificação única no sistema e Airtable
-                  </p>
-                </div>
               </div>
 
               {/* Next Steps Quick List */}
@@ -206,10 +183,8 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
                 </p>
 
                 <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8DFD4] my-3">
-                  <p className="font-semibold text-[#B86B43] text-xs mb-1">Seus Dados de Acesso:</p>
-                  <p><strong>Seu Link de Indicação:</strong> <span className="font-mono text-[#B86B43]">{afiliado.linkAfiliado}</span></p>
-                  <p><strong>Seu Cupom Exclusivo:</strong> <span className="font-mono font-bold">{afiliado.codigoCupom}</span></p>
-                  <p><strong>ID de Embaixador:</strong> <span className="font-mono">{afiliado.id}</span></p>
+                  <p className="font-semibold text-[#B86B43] text-xs mb-1">Seu Link de Indicação:</p>
+                  <p className="font-mono text-[#B86B43] font-semibold">{linkComUtm}</p>
                 </div>
 
                 <p>
@@ -234,7 +209,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
           </p>
           <button
             onClick={onEnterDashboard}
-            className="w-full sm:w-auto px-6 py-2.5 bg-[#B86B43] hover:bg-[#A35C36] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all"
+            className="w-full sm:w-auto px-6 py-2.5 bg-[#B86B43] hover:bg-[#A35C36] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
           >
             <span>Acessar Área do Embaixador & Treinamento</span>
             <ArrowRight className="w-4 h-4" />

@@ -1459,6 +1459,164 @@ export const AdminArea: React.FC<AdminAreaProps> = ({
               </button>
             </div>
 
+            {/* Card de Configuração de Token e Conexão Real com Airtable */}
+            <form onSubmit={handleSaveAirtable} className="p-6 bg-[#FAF7F2] rounded-3xl border border-[#E8DFD4] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E8DFD4] pb-3">
+                <div>
+                  <h4 className="font-serif text-lg font-bold text-[#2C2724]">
+                    Credenciais da API Airtable & Match Making
+                  </h4>
+                  <p className="text-xs text-[#7A7169]">
+                    Conecte seu Personal Access Token (PAT) para gravar em tempo real na sua base real do Airtable.
+                  </p>
+                </div>
+                {airtableSaved && (
+                  <span className="text-xs font-semibold text-[#5B6E58] bg-[#EEF3ED] px-3 py-1 rounded-full flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Configuração Salva com Sucesso!
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-medium text-[#2C2724] block mb-1">
+                    Airtable Personal Access Token (PAT)
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="patXXXXXXXXXXXXXX..."
+                    value={airtableConfig.personalAccessToken}
+                    onChange={(e) => setAirtableConfig({ ...airtableConfig, personalAccessToken: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#D9CFC4] bg-white font-mono focus:outline-none focus:ring-1 focus:ring-[#B86B43]"
+                  />
+                  <p className="text-[10px] text-[#7A7169] mt-0.5">
+                    Criado em <strong>airtable.com/create/tokens</strong> com escopos <code>data.records:read</code> e <code>data.records:write</code>.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-[#2C2724] block mb-1">
+                    Base ID
+                  </label>
+                  <input
+                    type="text"
+                    value={airtableConfig.baseId}
+                    onChange={(e) => setAirtableConfig({ ...airtableConfig, baseId: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#D9CFC4] bg-white font-mono focus:outline-none focus:ring-1 focus:ring-[#B86B43]"
+                  />
+                  <p className="text-[10px] text-[#7A7169] mt-0.5">ID da Base no Airtable</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div>
+                  <label className="text-xs font-medium text-[#2C2724] block mb-1">
+                    Nome da Tabela de Embaixadores
+                  </label>
+                  <input
+                    type="text"
+                    value={airtableConfig.tableName}
+                    onChange={(e) => setAirtableConfig({ ...airtableConfig, tableName: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#D9CFC4] bg-white font-mono focus:outline-none focus:ring-1 focus:ring-[#B86B43]"
+                  />
+                  <p className="text-[10px] text-[#7A7169] mt-0.5">Padrão da Can Candles: "Afiliados"</p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-[#2C2724] block mb-1">
+                    Table ID (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={airtableConfig.tableId}
+                    onChange={(e) => setAirtableConfig({ ...airtableConfig, tableId: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#D9CFC4] bg-white font-mono focus:outline-none focus:ring-1 focus:ring-[#B86B43]"
+                  />
+                  <p className="text-[10px] text-[#7A7169] mt-0.5">Ex: tbldNC77piIOLyfQc</p>
+                </div>
+              </div>
+
+              {/* Tabela de Match Making de Campos */}
+              <div className="pt-2">
+                <label className="text-xs font-semibold text-[#2C2724] block mb-1.5">
+                  Match Making de Campos Cadastrados → Colunas no Airtable ("Afiliados"):
+                </label>
+                <div className="overflow-x-auto rounded-xl border border-[#E8DFD4] bg-white">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#FAF7F2] text-[10px] uppercase font-semibold text-[#7A7169] border-b border-[#E8DFD4]">
+                      <tr>
+                        <th className="py-2 px-3">Campo no Formulário (Can Candles)</th>
+                        <th className="py-2 px-3">Coluna Correspondente no Airtable</th>
+                        <th className="py-2 px-3">Exemplo de Dado Enviado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F0E7DD] font-mono text-[11px] text-[#4A423D]">
+                      <tr>
+                        <td className="py-1.5 px-3 font-sans font-medium text-[#2C2724]">Código Único</td>
+                        <td className="py-1.5 px-3 text-[#B86B43] font-bold">ID Embaixador</td>
+                        <td className="py-1.5 px-3 text-[#7A7169]">CAN-7265</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 px-3 font-sans font-medium text-[#2C2724]">Nome do Embaixador</td>
+                        <td className="py-1.5 px-3 text-[#B86B43] font-bold">Nome Completo</td>
+                        <td className="py-1.5 px-3 text-[#7A7169]">Leo Criscio</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 px-3 font-sans font-medium text-[#2C2724]">CPF ou CNPJ</td>
+                        <td className="py-1.5 px-3 text-[#B86B43] font-bold">Documento / Tipo de Documento</td>
+                        <td className="py-1.5 px-3 text-[#7A7169]">384.351.978-29 (CPF)</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 px-3 font-sans font-medium text-[#2C2724]">WhatsApp com DDD</td>
+                        <td className="py-1.5 px-3 text-[#B86B43] font-bold">Seu WhatsApp / WhatsApp</td>
+                        <td className="py-1.5 px-3 text-[#7A7169]">+55 (11) 94703-6046</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 px-3 font-sans font-medium text-[#2C2724]">E-mail Principal</td>
+                        <td className="py-1.5 px-3 text-[#B86B43] font-bold">Email Principal / Email</td>
+                        <td className="py-1.5 px-3 text-[#7A7169]">leo@cancandles.com.br</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 px-3 font-sans font-medium text-[#2C2724]">Chave PIX Comissões</td>
+                        <td className="py-1.5 px-3 text-[#B86B43] font-bold">Chave PIX para comissões</td>
+                        <td className="py-1.5 px-3 text-[#7A7169]">384.351.978-29 (CPF)</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 px-3 font-sans font-medium text-[#2C2724]">Cidade e UF</td>
+                        <td className="py-1.5 px-3 text-[#B86B43] font-bold">Cidade / UF</td>
+                        <td className="py-1.5 px-3 text-[#7A7169]">São Paulo / SP</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 px-3 font-sans font-medium text-[#2C2724]">Link Exclusivo</td>
+                        <td className="py-1.5 px-3 text-[#B86B43] font-bold">Link de Indicação</td>
+                        <td className="py-1.5 px-3 text-[#7A7169]">https://embaixadores.cancandles.com.br/?ref=CAN-7265</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 px-3 font-sans font-medium text-[#2C2724]">Autenticação SMS</td>
+                        <td className="py-1.5 px-3 text-[#5B6E58] font-bold">Token SMS Validado</td>
+                        <td className="py-1.5 px-3 text-[#5B6E58]">Sim (Autenticado)</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 px-3 font-sans font-medium text-[#2C2724]">Status Inicial</td>
+                        <td className="py-1.5 px-3 text-[#B86B43] font-bold">Status</td>
+                        <td className="py-1.5 px-3 text-[#7A7169]">Ativo</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-[#2C2724] hover:bg-[#3D3733] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
+                >
+                  Salvar Configurações do Airtable
+                </button>
+              </div>
+            </form>
+
             {/* Requisito 3 & 4: Boxes explicativos dos campos obrigatórios */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
