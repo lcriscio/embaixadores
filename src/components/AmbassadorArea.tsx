@@ -105,10 +105,20 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
+  // Link curto rastreado com parâmetros UTM oficiais para o Embaixador
+  const linkComUtm = useMemo(() => {
+    return `https://cancandles.com.br/?utm_source=${afiliado.id}`;
+  }, [afiliado.id]);
+
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(afiliado.linkAfiliado);
+    navigator.clipboard.writeText(linkComUtm);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(`Olá! Recomendo os produtos olfativos exclusivos e velas aromáticas da Can Candles & Wellness. Acesse meu link oficial de indicação para receber atendimento prioritário da equipe: ${linkComUtm}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   const handleSessionComplete = (sessionNum: number) => {
@@ -222,30 +232,44 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
               </p>
             </div>
 
-            {/* Quick Link Share Bar */}
-            <div className="flex flex-wrap items-center gap-2 bg-white/5 border border-white/10 p-2.5 rounded-xl">
+            {/* Quick Link Share Bar com UTM_Source */}
+            <div className="flex flex-wrap items-center gap-2.5 bg-white/5 border border-white/10 p-2.5 rounded-xl">
               <div className="text-left">
-                <span className="text-[10px] text-[#A69C93] block">Seu link oficial de indicação:</span>
-                <span className="text-xs font-mono text-white max-w-[200px] sm:max-w-xs truncate block">
-                  {afiliado.linkAfiliado}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-[#A69C93] block">Link com UTM_Source:</span>
+                  <span className="text-[9px] bg-[#B86B43]/30 text-[#E8DFD4] font-semibold px-1.5 py-0.2 rounded">
+                    Rastreado
+                  </span>
+                </div>
+                <span className="text-xs font-mono text-white max-w-[210px] sm:max-w-xs truncate block" title={linkComUtm}>
+                  {linkComUtm}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={handleCopyLink}
                   className="px-3 py-1.5 bg-[#B86B43] hover:bg-[#A35C36] text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Copiar link rastreado com UTM_Source"
                 >
                   {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedLink ? 'Copiado!' : 'Copiar Link'}</span>
+                  <span>{copiedLink ? 'Copiado!' : 'Copiar Link UTM'}</span>
+                </button>
+                <button
+                  onClick={handleShareWhatsApp}
+                  className="px-3 py-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Compartilhar no WhatsApp"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>WhatsApp</span>
                 </button>
                 {onOpenLeadLanding && (
                   <button
                     onClick={onOpenLeadLanding}
                     className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                    title="Ver como seus convidados veem a página de indicação"
+                    title="Pré-visualizar como o seu contato verá a página"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Ver Landing do Lead</span>
+                    <span>Ver Prévia do Lead</span>
                   </button>
                 )}
               </div>

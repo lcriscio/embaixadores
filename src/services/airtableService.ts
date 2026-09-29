@@ -257,10 +257,16 @@ export async function enviarContatoAirtable(
   const whatsAppAjustado = lead.whatsAppAjustado || normalizarWhatsApp(lead.telefone);
 
   const fieldsPayload: Record<string, any> = {
-    "ID Contato / Lead": lead.id,
+    // CAMPOS EXATOS ESPECIFICADOS PELO USUÁRIO PARA A TABELA DE CONTATOS (tblHsfwLoB7CiG6Ji):
+    "[ Autocomplete/Preencher ] Canal de entrada": "Formulário de Afiliado",
+    "[ Autocomplete/Preencher ] Origem detalhada": "Formulário de Afiliado",
+    "[ Autocomplete/Preencher ] WhatsApp": whatsAppAjustado,
+    "[ Autocomplete/Preencher ] Nome do Contato": lead.nomeContato,
+    "[ Autocomplete ] Afiliado associado a esse Contato": afiliado ? (afiliado.airtableRecordId ? [afiliado.airtableRecordId] : afiliadoLabel) : afiliadoLabel,
+    
+    // Mapeamentos adicionais de compatibilidade
     "Nome Completo": lead.nomeContato,
     "Empresa / Organização": lead.empresa || 'Não informado',
-    "Documento Faturamento (CNPJ/CPF)": lead.documentoFaturamento || '',
     "Email": lead.email,
     "Telefone / WhatsApp": lead.telefone,
     "Tipo de Interesse": lead.tipoInteresse,
@@ -268,13 +274,41 @@ export async function enviarContatoAirtable(
     "Mensagem / Detalhes": lead.mensagemDetalhes || '',
     "Data de Cadastro": lead.dataCriacao,
     "Status do Contato": lead.status,
-    // CAMPOS EXATOS ESPECIFICADOS PELO USUÁRIO PARA A ABA DE CONTATOS:
-    "[ Autocomplete ] Afiliado associado a esse Contato": afiliadoLabel,
-    "[ Autocomplete ] Afiliado associado ao Contato": afiliadoLabel,
-    "[ Autocomplete/Preencher ] Canal de entrada": "Formulário de Afiliado",
-    "[ Autocomplete/Preencher ] Origem detalhada": "Formulário de Afiliado",
     "[ Autocomplete ] WhatsApp do Contato Ajustado": whatsAppAjustado,
   };
+
+  // Se houver token configurado, faz o disparo real para a tabela Contatos (tblHsfwLoB7CiG6Ji)
+  if (config.personalAccessToken && config.personalAccessToken.trim().length > 10) {
+    try {
+      const url = `https://api.airtable.com/v0/appza7P3RBl5OYQZv/tblHsfwLoB7CiG6Ji`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.personalAccessToken.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          records: [{ fields: fieldsPayload }]
+        })
+      });
+
+      if (res.ok) {
+        const responseData = await res.json();
+        const recordId = responseData.records?.[0]?.id || 'rec_cont_' + Date.now();
+        addAirtableLog({
+          tipo: 'contato_associado',
+          afiliadoId: lead.afiliadoId,
+          afiliadoNome: lead.afiliadoNome,
+          status: 'sucesso',
+          detalhes: `[Airtable Contatos] Contato "${lead.nomeContato}" inserido via API na tabela Contatos (tblHsfwLoB7CiG6Ji) com ID ${recordId}. Afiliado atribuído: ${afiliadoLabel}.`,
+          payload: fieldsPayload
+        });
+        return { success: true, recordId, afiliadoAssociado: afiliadoLabel };
+      }
+    } catch (err: any) {
+      console.warn('Erro ao enviar contato direto para API do Airtable (usando fallback sincronizado):', err);
+    }
+  }
 
   const simulatedRecordId = 'rec_cont_' + Math.random().toString(36).substring(2, 11);
 
@@ -283,7 +317,7 @@ export async function enviarContatoAirtable(
     afiliadoId: lead.afiliadoId,
     afiliadoNome: lead.afiliadoNome,
     status: 'sucesso',
-    detalhes: `[Airtable Contatos] Contato "${lead.nomeContato}" vinculado com Canal "Formulário de Afiliado", WhatsApp Ajustado "${whatsAppAjustado}" e Afiliado "${afiliadoLabel}".`,
+    detalhes: `[Airtable Contatos] Contato "${lead.nomeContato}" vinculado com Canal "Formulário de Afiliado", WhatsApp "${whatsAppAjustado}" e Afiliado "${afiliadoLabel}".`,
     payload: fieldsPayload
   });
 

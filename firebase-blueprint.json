@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "Ambassador": {
+      "title": "Ambassador",
+      "description": "Registered ambassador/affiliate profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "nome": { "type": "string" },
+        "email": { "type": "string" },
+        "telefone": { "type": "string" },
+        "instagram": { "type": "string" },
+        "cidade": { "type": "string" },
+        "estado": { "type": "string" },
+        "tipoPessoa": { "type": "string" },
+        "chavePix": { "type": "string" },
+        "tipoChavePix": { "type": "string" },
+        "nicho": { "type": "string" },
+        "status": { "type": "string" },
+        "codigoIndicacao": { "type": "string" },
+        "taxaComissao": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "termosAceitos": { "type": "boolean" },
+        "termosAceitosEm": { "type": "string" }
+      },
+      "required": ["id", "userId", "nome", "email", "telefone", "chavePix", "codigoIndicacao", "status"]
+    },
+    "Indication": {
+      "title": "Indication",
+      "description": "Lead or project indicated by an ambassador",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ambassadorId": { "type": "string" },
+        "nomeCliente": { "type": "string" },
+        "empresa": { "type": "string" },
+        "email": { "type": "string" },
+        "telefone": { "type": "string" },
+        "tipoProjeto": { "type": "string" },
+        "volumeEstimado": { "type": "string" },
+        "mensagem": { "type": "string" },
+        "status": { "type": "string" },
+        "valorVenda": { "type": "number" },
+        "valorComissao": { "type": "number" },
+        "statusComissao": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "ambassadorId", "nomeCliente", "telefone", "status", "createdAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Administrator account with management permissions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["id", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/ambassadors/{ambassadorId}": {
+      "schema": "Ambassador",
+      "description": "Collection of registered ambassadors"
+    },
+    "/indications/{indicationId}": {
+      "schema": "Indication",
+      "description": "Collection of leads and referred projects"
+    },
+    "/admins/{adminId}": {
+      "schema": "AdminUser",
+      "description": "Collection of authorized administrators"
+    }
+  }
+}

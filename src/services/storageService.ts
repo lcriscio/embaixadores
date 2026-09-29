@@ -227,7 +227,7 @@ export async function cadastrarNovoAfiliado(dados: {
     cidade: dados.cidade.trim(),
     estado: dados.estado.trim().toUpperCase(),
     instagram: dados.instagram?.trim(),
-    linkAfiliado: `https://cancandles.com.br/?ref=${newId}`,
+    linkAfiliado: `https://cancandles.com.br/?utm_source=${newId}`,
     codigoCupom: cupom,
     status: 'ativo',
     taxaComissao: campanha.taxaComissaoPadrao || 10, // Dinâmico com a taxa da Can Candles
