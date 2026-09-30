@@ -196,7 +196,8 @@ export async function GET(request: Request): Promise<Response> {
     const idAfiliado = String(afiliado.fields[A.idAfiliado] ?? '');
 
     // 2. Pedidos com este afiliado em "Existe Afiliado associado a esse pedido?"
-    //    (em fórmulas, o lookup devolve o "ID do Afiliado"; conferimos o record ID abaixo)
+    //    (em fórmulas, o lookup devolve o "ID do Afiliado"; conferimos de novo abaixo aceitando
+    //    o record ID ou o "ID do Afiliado", conforme o formato que a API devolver)
     const pedidosBrutos = idAfiliado
       ? await listar(
           PEDIDOS_TABLE_ID,
@@ -204,7 +205,10 @@ export async function GET(request: Request): Promise<Response> {
           Object.values(P),
         )
       : [];
-    const pedidosDoAfiliado = pedidosBrutos.filter((r) => (r.fields[P.afiliado] || []).includes(afiliado.id));
+    const pedidosDoAfiliado = pedidosBrutos.filter((r) => {
+      const ligados = ((r.fields[P.afiliado] || []) as unknown[]).map((v: any) => String(v?.id ?? v?.name ?? v));
+      return ligados.includes(afiliado.id) || ligados.includes(idAfiliado);
+    });
 
     // 3. Nomes dos contatos dos pedidos
     const idsContatos = [...new Set(pedidosDoAfiliado.flatMap((r) => (r.fields[P.contato] || []) as string[]))];
