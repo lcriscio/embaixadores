@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Afiliado, LeadIndicacao, NotaFiscal } from '../types';
 import { CommissionCalculator } from './CommissionCalculator';
 import { TermsModal } from './TermsModal';
@@ -31,6 +31,7 @@ import {
   Award
 } from 'lucide-react';
 import { linkIndicacao } from '../utils/linkIndicacao';
+import { buscarPainelEmbaixador, PainelDados } from '../services/painelService';
 
 interface AmbassadorAreaProps {
   afiliado: Afiliado;
@@ -79,10 +80,33 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
   const meusLeads = useMemo(() => leads.filter(l => l.afiliadoId === afiliado.id), [leads, afiliado.id]);
   const minhasNFs = useMemo(() => notasFiscais.filter(n => n.afiliadoId === afiliado.id), [notasFiscais, afiliado.id]);
 
-  const totalLeadsCadastrados = meusLeads.length;
-  const leadsFizeramPedido = meusLeads.filter(l => l.status === 'pedido_fechado' || l.status === 'pago_100').length;
-  const leadsNaoFizeramPedido = meusLeads.filter(l => l.status === 'lead_recebido' || l.status === 'em_briefing' || l.status === 'proposta_enviada' || l.status === 'cancelado').length;
-  const leadsPagaram100 = meusLeads.filter(l => l.pago100Porcento && l.comissaoElegivel).length;
+  // Contatos indicados e pedidos vindos do CRM (Airtable) via /api/painel
+  const [painel, setPainel] = useState<PainelDados | null>(null);
+  const [painelCarregando, setPainelCarregando] = useState(true);
+  const [painelErro, setPainelErro] = useState('');
+
+  const carregarPainel = useCallback(async () => {
+    setPainelCarregando(true);
+    setPainelErro('');
+    try {
+      setPainel(await buscarPainelEmbaixador());
+    } catch (err: any) {
+      setPainelErro(err?.message || 'Não conseguimos carregar seus dados agora.');
+    } finally {
+      setPainelCarregando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarPainel();
+  }, [carregarPainel, afiliado.id]);
+
+  const totalContatosIndicados = painel?.metricas.totalContatosIndicados ?? 0;
+  const contatosOrcaram = painel?.metricas.contatosOrcaram ?? 0;
+  const contatosNaoOrcaram = painel?.metricas.contatosNaoOrcaram ?? 0;
+  const contatosPagaram100 = painel?.metricas.contatosPagaram100 ?? 0;
+  const pedidosCrm = painel?.pedidos ?? [];
+  const exibirMetrica = (valor: number) => (painelCarregando && !painel ? '…' : valor);
 
   // Total de faturamento gerado elegível
   const faturamentoTotalElegivel = meusLeads
@@ -334,10 +358,10 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
               <Users className="w-4 h-4 text-[#7A7169]" />
             </div>
             <div className="font-serif text-2xl sm:text-3xl font-bold text-[#2C2724]">
-              {leadsPagaram100} <span className="text-sm font-sans font-normal text-[#7A7169]">/ {totalLeadsCadastrados} leads</span>
+              {exibirMetrica(contatosPagaram100)} <span className="text-sm font-sans font-normal text-[#7A7169]">/ {exibirMetrica(totalContatosIndicados)} contatos</span>
             </div>
             <p className="text-[11px] text-[#5B6E58] mt-1">
-              {leadsFizeramPedido} pedidos fechados
+              {exibirMetrica(contatosOrcaram)} orçaram pedidos
             </p>
           </div>
 
@@ -926,7 +950,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                     Histórico de Comissões do Embaixador
                   </h3>
                   <p className="text-xs text-[#7A7169]">
-                    Detalhamento dos leads cadastrados, pedidos fechados e comissões elegíveis.
+                    Contatos indicados por você e pedidos registrados no CRM da Can Candles.
                   </p>
                 </div>
 
@@ -942,27 +966,38 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                 </div>
               </div>
 
-              {/* Metrics Grid */}
+              {/* Metrics Grid (dados do CRM) */}
+              {painelErro && (
+                <div className="mb-3 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    {painelErro}
+                  </span>
+                  <button type="button" onClick={carregarPainel} className="underline font-semibold cursor-pointer shrink-0">
+                    Tentar novamente
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                 <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#E8DFD4]">
-                  <span className="text-[10px] text-[#7A7169] uppercase font-semibold block">Total de Leads</span>
-                  <span className="text-xl font-bold text-[#2C2724] mt-1 block">{totalLeadsCadastrados}</span>
+                  <span className="text-[10px] text-[#7A7169] uppercase font-semibold block">Total de Contatos Indicados</span>
+                  <span className="text-xl font-bold text-[#2C2724] mt-1 block">{exibirMetrica(totalContatosIndicados)}</span>
                   <span className="text-[10px] text-[#7A7169]">Registrados via seu link</span>
                 </div>
                 <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#E8DFD4]">
-                  <span className="text-[10px] text-[#7A7169] uppercase font-semibold block">Fizeram Pedidos</span>
-                  <span className="text-xl font-bold text-[#2C2724] mt-1 block">{leadsFizeramPedido}</span>
-                  <span className="text-[10px] text-[#5B6E58]">Taxa de fechamento ativa</span>
+                  <span className="text-[10px] text-[#7A7169] uppercase font-semibold block">Quantidade de Contatos que orçaram pedidos</span>
+                  <span className="text-xl font-bold text-[#2C2724] mt-1 block">{exibirMetrica(contatosOrcaram)}</span>
+                  <span className="text-[10px] text-[#5B6E58]">Com pedido registrado na Can</span>
                 </div>
                 <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#E8DFD4]">
-                  <span className="text-[10px] text-[#7A7169] uppercase font-semibold block">Não Fizeram Pedidos</span>
-                  <span className="text-xl font-bold text-[#7A7169] mt-1 block">{leadsNaoFizeramPedido}</span>
-                  <span className="text-[10px] text-[#7A7169]">Em briefing ou proposta</span>
+                  <span className="text-[10px] text-[#7A7169] uppercase font-semibold block">Não fizeram pedidos</span>
+                  <span className="text-xl font-bold text-[#7A7169] mt-1 block">{exibirMetrica(contatosNaoOrcaram)}</span>
+                  <span className="text-[10px] text-[#7A7169]">Indicados sem pedido ainda</span>
                 </div>
                 <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#E8DFD4]">
-                  <span className="text-[10px] text-[#7A7169] uppercase font-semibold block">Pagaram 100% Integral</span>
-                  <span className="text-xl font-bold text-[#5B6E58] mt-1 block">{leadsPagaram100}</span>
-                  <span className="text-[10px] text-[#5B6E58]">Comissão 10% liberada</span>
+                  <span className="text-[10px] text-[#7A7169] uppercase font-semibold block">Contatos que pagaram 100% seus pedidos</span>
+                  <span className="text-xl font-bold text-[#5B6E58] mt-1 block">{exibirMetrica(contatosPagaram100)}</span>
+                  <span className="text-[10px] text-[#5B6E58]">Valor cheio ou sinal + saldo pagos</span>
                 </div>
               </div>
 
@@ -983,69 +1018,59 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                 </button>
               </div>
 
-              {/* Commission List Table */}
+              {/* Pedidos dos contatos indicados (dados do CRM) */}
+              <h4 className="font-serif text-lg font-bold text-[#2C2724] mb-3">Pedidos</h4>
               <div className="overflow-x-auto rounded-xl border border-[#E8DFD4]">
                 <table className="w-full text-left text-xs text-[#2C2724]">
                   <thead className="bg-[#FAF7F2] text-[11px] font-semibold text-[#7A7169] border-b border-[#E8DFD4] uppercase">
                     <tr>
-                      <th className="py-3 px-4">Data</th>
-                      <th className="py-3 px-4">Cliente / Contato</th>
-                      <th className="py-3 px-4">Documento Faturado</th>
-                      <th className="py-3 px-4">Status Documento</th>
-                      <th className="py-3 px-4">Valor Total</th>
-                      <th className="py-3 px-4 text-center">Taxa Aplicada</th>
-                      <th className="py-3 px-4">Comissão Calculada</th>
-                      <th className="py-3 px-4">Status Pagamento</th>
+                      <th className="py-3 px-4">Data da criação do Pedido</th>
+                      <th className="py-3 px-4">Estágio do pedido</th>
+                      <th className="py-3 px-4">Nome do Contato</th>
+                      <th className="py-3 px-4">Pedido detalhado</th>
+                      <th className="py-3 px-4">Preço do Pedido</th>
+                      <th className="py-3 px-4">Forma de Pagamento</th>
+                      <th className="py-3 px-4">Status do sinal/valor cheio a pagar</th>
+                      <th className="py-3 px-4">Status do saldo a pagar</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F0E7DD]">
-                    {meusLeads.length === 0 ? (
+                    {painelCarregando && !painel ? (
                       <tr>
                         <td colSpan={8} className="py-8 text-center text-xs text-[#7A7169]">
-                          Nenhum lead indicado ainda. Compartilhe seu link exclusivo para iniciar seus comissionamentos!
+                          Carregando seus pedidos…
+                        </td>
+                      </tr>
+                    ) : pedidosCrm.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-xs text-[#7A7169]">
+                          Nenhum pedido dos seus contatos indicados ainda. Compartilhe seu link exclusivo para iniciar seus comissionamentos!
                         </td>
                       </tr>
                     ) : (
-                      meusLeads.map((lead) => (
-                        <tr key={lead.id} className="hover:bg-[#FAF7F2]/50 transition-colors">
-                          <td className="py-3 px-4 font-mono text-[11px] text-[#7A7169]">{lead.dataCriacao}</td>
-                          <td className="py-3 px-4 font-medium">
-                            <div>{lead.nomeContato}</div>
-                            {lead.empresa && <div className="text-[11px] text-[#7A7169]">{lead.empresa}</div>}
+                      pedidosCrm.map((pedido) => (
+                        <tr key={pedido.id} className="hover:bg-[#FAF7F2]/50 transition-colors align-top">
+                          <td className="py-3 px-4 font-mono text-[11px] text-[#7A7169] whitespace-nowrap">
+                            {new Date(pedido.dataCriacao).toLocaleDateString('pt-BR')}
                           </td>
-                          <td className="py-3 px-4 font-mono text-[11px]">{lead.documentoFaturamento}</td>
-                          <td className="py-3 px-4">
-                            {lead.statusDocumento === 'novo_cliente' ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#5B6E58] bg-[#EEF3ED] px-2 py-0.5 rounded-full">
-                                <Check className="w-3 h-3" />
-                                Novo Cliente
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full" title="Já constava no histórico Can Candles">
-                                <Info className="w-3 h-3" />
-                                Documento Já Existente
-                              </span>
-                            )}
+                          <td className="py-3 px-4 whitespace-nowrap">{pedido.estagio}</td>
+                          <td className="py-3 px-4 font-medium">{pedido.nomeContato}</td>
+                          <td className="py-3 px-4 text-[11px] text-[#5C544E] whitespace-pre-line min-w-[220px] max-w-[320px]">
+                            {pedido.detalhamento || '—'}
                           </td>
-                          <td className="py-3 px-4 font-mono font-medium">{formatBRL(lead.valorTotal)}</td>
-                          <td className="py-3 px-4 text-center">
-                            <span className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-md bg-[#FAF7F2] border border-[#E8DFD4] text-[#B86B43]">
-                              {lead.taxaComissaoAplicada || 10}%
+                          <td className="py-3 px-4 font-mono font-medium whitespace-nowrap">
+                            {pedido.precoFinal !== null ? formatBRL(pedido.precoFinal) : 'A definir'}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">{pedido.formaPagamento}</td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${pedido.statusSinal === 'Pago' ? 'text-[#5B6E58] bg-[#EEF3ED]' : 'text-[#7A7169] bg-[#FAF7F2] border border-[#E8DFD4]'}`}>
+                              {pedido.statusSinal}
                             </span>
                           </td>
-                          <td className="py-3 px-4 font-mono font-bold text-[#B86B43]">
-                            {lead.comissaoElegivel ? formatBRL(lead.comissaoCalculada) : 'R$ 0,00'}
-                          </td>
-                          <td className="py-3 px-4">
-                            {lead.pago100Porcento ? (
-                              <span className="text-[10px] font-medium text-[#5B6E58] bg-[#EEF3ED] px-2 py-0.5 rounded-full">
-                                100% Pago
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-medium text-[#7A7169] bg-[#FAF7F2] border border-[#E8DFD4] px-2 py-0.5 rounded-full">
-                                Aguardando Pgto
-                              </span>
-                            )}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${pedido.statusSaldo === 'Pago' ? 'text-[#5B6E58] bg-[#EEF3ED]' : 'text-[#7A7169] bg-[#FAF7F2] border border-[#E8DFD4]'}`}>
+                              {pedido.statusSaldo}
+                            </span>
                           </td>
                         </tr>
                       ))
