@@ -20,6 +20,9 @@ const FIREBASE_JWKS_URL =
 const AIRTABLE_BASE_ID = 'appza7P3RBl5OYQZv';
 const AIRTABLE_TABLE_ID = 'tbldNC77piIOLyfQc'; // Afiliados
 
+// Mesmo valor de src/utils/linkIndicacao.ts
+const LINK_INDICACAO_BASE = 'https://queroconhecer.cancandles.com.br';
+
 // IDs dos campos da tabela "Afiliados" (não quebram se a coluna for renomeada)
 const F = {
   nome: 'fldwx4v1sIO8fvFSn', // Nome do Afiliado
@@ -137,6 +140,14 @@ function texto(v: unknown, max = 200): string {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';
 }
 
+function linkIndicacao(codigo: string): string {
+  return `${LINK_INDICACAO_BASE}/${codigo}`;
+}
+
+function codigoDoLink(link: unknown): string | null {
+  return typeof link === 'string' ? link.match(/CAN-\d{3,6}/i)?.[0].toUpperCase() || null : null;
+}
+
 function airtableString(v: string): string {
   return v.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
@@ -153,6 +164,17 @@ async function airtable(path: string, init: RequestInit = {}) {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body?.error?.message || body?.error?.type || `Airtable HTTP ${res.status}`);
   return body;
+}
+
+/** Sorteia CAN-XXXX até achar um código que não aparece em nenhum "Link Único do Afiliado". */
+async function gerarCodigoUnico(): Promise<string> {
+  for (let tentativa = 0; tentativa < 8; tentativa++) {
+    const codigo = `CAN-${Math.floor(1000 + Math.random() * 9000)}`;
+    const formula = `REGEX_MATCH({Link Único do Afiliado}, '${codigo}($|[^0-9])')`;
+    const usados = await airtable(`?maxRecords=1&fields%5B%5D=${F.link}&filterByFormula=${encodeURIComponent(formula)}`);
+    if (!usados.records?.length) return codigo;
+  }
+  throw new Error('Não foi possível gerar um código de embaixador único.');
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -197,7 +219,6 @@ export async function POST(request: Request): Promise<Response> {
   const cidade = texto(body.cidade, 80);
   const uf = texto(body.estado, 2).toUpperCase();
   const instagram = texto(body.instagram, 80);
-  const link = texto(body.linkAfiliado, 300);
 
   const faltando = [
     !nome && 'nome',
@@ -207,7 +228,6 @@ export async function POST(request: Request): Promise<Response> {
     !tipoPix && 'tipoChavePix',
     !cidade && 'cidade',
     !UFS.has(uf) && 'estado',
-    !/^https:\/\/([a-z0-9-]+\.)*cancandles\.com\.br\//.test(link) && 'linkAfiliado',
   ].filter(Boolean);
   if (faltando.length) {
     return json(400, { success: false, error: `Campos inválidos: ${faltando.join(', ')}` });
@@ -216,14 +236,31 @@ export async function POST(request: Request): Promise<Response> {
   const telefoneFormatado = formatarWhatsApp(telefoneValidado);
 
   try {
-    // 3. Evita duplicidade: mesmo e-mail ou mesmo WhatsApp já cadastrado
+    // 3. Já cadastrado? O WhatsApp (validado por SMS) identifica o embaixador. O código e o
+    //    link são sempre os que estão no Airtable, para o link nunca mudar entre cadastros.
     const formula = `OR(LOWER({Email do Afiliado})='${airtableString(email)}',{Telefone do Afiliado (WhatsApp)}='${airtableString(telefoneFormatado)}')`;
-    const existentes = await airtable(`?maxRecords=1&filterByFormula=${encodeURIComponent(formula)}`);
-    if (existentes.records?.length) {
-      return json(200, { success: true, recordId: existentes.records[0].id, jaExistia: true });
+    const existentes = await airtable(`?maxRecords=10&filterByFormula=${encodeURIComponent(formula)}`);
+    const registros: any[] = existentes.records || [];
+    const mesmoTelefone = registros.find((r) => r.fields?.['Telefone do Afiliado (WhatsApp)'] === telefoneFormatado);
+    if (mesmoTelefone) {
+      const linkAtual = mesmoTelefone.fields?.['Link Único do Afiliado'];
+      const codigo = codigoDoLink(linkAtual) || (await gerarCodigoUnico());
+      const link = linkIndicacao(codigo);
+      if (linkAtual !== link) {
+        await airtable('', {
+          method: 'PATCH',
+          body: JSON.stringify({ records: [{ id: mesmoTelefone.id, fields: { [F.link]: link } }] }),
+        });
+      }
+      return json(200, { success: true, recordId: mesmoTelefone.id, codigo, linkAfiliado: link, jaExistia: true });
+    }
+    if (registros.length) {
+      return json(409, { success: false, error: 'Este e-mail já está cadastrado com outro WhatsApp.' });
     }
 
-    // 4. Cria o registro na tabela Afiliados
+    // 4. Cria o registro na tabela Afiliados com um código que ainda não existe
+    const codigo = await gerarCodigoUnico();
+    const link = linkIndicacao(codigo);
     const fields: Record<string, string> = {
       [F.nome]: nome,
       [F.documento]: documento,
@@ -241,7 +278,7 @@ export async function POST(request: Request): Promise<Response> {
       method: 'POST',
       body: JSON.stringify({ records: [{ fields }] }),
     });
-    return json(201, { success: true, recordId: criado.records[0].id, jaExistia: false });
+    return json(201, { success: true, recordId: criado.records[0].id, codigo, linkAfiliado: link, jaExistia: false });
   } catch (e: any) {
     console.error('Erro Airtable /api/afiliados:', e);
     return json(502, { success: false, error: `Falha ao gravar no Airtable: ${e.message}` });

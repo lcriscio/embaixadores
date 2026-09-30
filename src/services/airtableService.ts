@@ -141,7 +141,9 @@ export function verificarTelefoneExistenteCRM(telefone: string): { existe: boole
  * A gravação acontece no servidor (/api/afiliados), que confere o ID Token do Firebase
  * e só aceita usuários com telefone validado por SMS. O token do Airtable fica na Vercel.
  */
-export async function enviarAfiliadoAirtable(afiliado: Afiliado): Promise<{ success: boolean; recordId?: string; error?: string }> {
+export async function enviarAfiliadoAirtable(
+  afiliado: Afiliado,
+): Promise<{ success: boolean; recordId?: string; codigo?: string; linkAfiliado?: string; error?: string }> {
   const payload = {
     nome: afiliado.nome,
     tipoDocumento: afiliado.tipoDocumento || (afiliado.tipoPessoa === 'PJ' ? 'CNPJ' : 'CPF'),
@@ -153,7 +155,6 @@ export async function enviarAfiliadoAirtable(afiliado: Afiliado): Promise<{ succ
     cidade: afiliado.cidade,
     estado: afiliado.estado,
     instagram: afiliado.instagram || '',
-    linkAfiliado: afiliado.linkAfiliado,
   };
 
   const registrarLog = (status: 'sucesso' | 'erro', detalhes: string) =>
@@ -196,7 +197,8 @@ export async function enviarAfiliadoAirtable(afiliado: Afiliado): Promise<{ succ
     const config = getAirtableConfig();
     config.ultimoSync = new Date().toISOString();
     saveAirtableConfig(config);
-    return { success: true, recordId: data.recordId };
+    // O código CAN-XXXX e o link são definidos pelo servidor (fonte: Airtable)
+    return { success: true, recordId: data.recordId, codigo: data.codigo, linkAfiliado: data.linkAfiliado };
   } catch (err: any) {
     const errMsg = err?.message || 'Erro de rede ao sincronizar com Airtable.';
     registrarLog('erro', `Falha ao sincronizar com Airtable: ${errMsg}`);

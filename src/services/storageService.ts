@@ -244,6 +244,10 @@ export async function cadastrarNovoAfiliado(dados: {
   if (airtableRes.success) {
     novoAfiliado.airtableSynced = true;
     novoAfiliado.airtableRecordId = airtableRes.recordId;
+    if (airtableRes.codigo && airtableRes.linkAfiliado) {
+      novoAfiliado.id = airtableRes.codigo;
+      novoAfiliado.linkAfiliado = airtableRes.linkAfiliado;
+    }
   }
 
   afiliados.unshift(novoAfiliado);
