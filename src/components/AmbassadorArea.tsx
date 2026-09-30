@@ -106,10 +106,10 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  // Link curto rastreado com parâmetros UTM oficiais para o Embaixador
+  // Link salvo no Airtable (fonte oficial); o montado pelo código é só fallback
   const linkComUtm = useMemo(() => {
-    return linkIndicacao(afiliado.id);
-  }, [afiliado.id]);
+    return afiliado.linkAfiliado || linkIndicacao(afiliado.id);
+  }, [afiliado.linkAfiliado, afiliado.id]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(linkComUtm);

@@ -197,7 +197,31 @@ export async function POST(request: Request): Promise<Response> {
     return json(403, { success: false, error: 'Telefone não validado por SMS.' });
   }
 
-  // 2. Dados do formulário
+  const telefoneValidado = digitosNacionais(claims.phone_number);
+  const telefoneFormatado = formatarWhatsApp(telefoneValidado);
+
+  // 2. Embaixador já cadastrado com este WhatsApp (validado por SMS)? Devolve exatamente o
+  //    link que está no Airtable, independentemente do que foi preenchido no formulário.
+  try {
+    const formula = `{Telefone do Afiliado (WhatsApp)}='${airtableString(telefoneFormatado)}'`;
+    const existentes = await airtable(`?maxRecords=1&filterByFormula=${encodeURIComponent(formula)}`);
+    const existente = existentes.records?.[0];
+    if (existente) {
+      const link = existente.fields?.['Link Único do Afiliado'] || '';
+      return json(200, {
+        success: true,
+        recordId: existente.id,
+        codigo: codigoDoLink(link),
+        linkAfiliado: link,
+        jaExistia: true,
+      });
+    }
+  } catch (e: any) {
+    console.error('Erro Airtable /api/afiliados (consulta):', e);
+    return json(502, { success: false, error: `Falha ao consultar o Airtable: ${e.message}` });
+  }
+
+  // 3. Dados do formulário
   let body: any;
   try {
     body = await request.json();
@@ -206,7 +230,6 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const telefoneInformado = digitosNacionais(texto(body.telefone, 30));
-  const telefoneValidado = digitosNacionais(claims.phone_number);
   if (telefoneInformado !== telefoneValidado) {
     return json(403, { success: false, error: 'O WhatsApp informado é diferente do número validado por SMS.' });
   }
@@ -233,32 +256,15 @@ export async function POST(request: Request): Promise<Response> {
     return json(400, { success: false, error: `Campos inválidos: ${faltando.join(', ')}` });
   }
 
-  const telefoneFormatado = formatarWhatsApp(telefoneValidado);
-
   try {
-    // 3. Já cadastrado? O WhatsApp (validado por SMS) identifica o embaixador. O código e o
-    //    link são sempre os que estão no Airtable, para o link nunca mudar entre cadastros.
-    const formula = `OR(LOWER({Email do Afiliado})='${airtableString(email)}',{Telefone do Afiliado (WhatsApp)}='${airtableString(telefoneFormatado)}')`;
-    const existentes = await airtable(`?maxRecords=10&filterByFormula=${encodeURIComponent(formula)}`);
-    const registros: any[] = existentes.records || [];
-    const mesmoTelefone = registros.find((r) => r.fields?.['Telefone do Afiliado (WhatsApp)'] === telefoneFormatado);
-    if (mesmoTelefone) {
-      const linkAtual = mesmoTelefone.fields?.['Link Único do Afiliado'];
-      const codigo = codigoDoLink(linkAtual) || (await gerarCodigoUnico());
-      const link = linkIndicacao(codigo);
-      if (linkAtual !== link) {
-        await airtable('', {
-          method: 'PATCH',
-          body: JSON.stringify({ records: [{ id: mesmoTelefone.id, fields: { [F.link]: link } }] }),
-        });
-      }
-      return json(200, { success: true, recordId: mesmoTelefone.id, codigo, linkAfiliado: link, jaExistia: true });
-    }
-    if (registros.length) {
+    // 4. E-mail já usado por outro embaixador (com outro WhatsApp)?
+    const formulaEmail = `LOWER({Email do Afiliado})='${airtableString(email)}'`;
+    const mesmoEmail = await airtable(`?maxRecords=1&filterByFormula=${encodeURIComponent(formulaEmail)}`);
+    if (mesmoEmail.records?.length) {
       return json(409, { success: false, error: 'Este e-mail já está cadastrado com outro WhatsApp.' });
     }
 
-    // 4. Cria o registro na tabela Afiliados com um código que ainda não existe
+    // 5. Cria o registro na tabela Afiliados com um código que ainda não existe
     const codigo = await gerarCodigoUnico();
     const link = linkIndicacao(codigo);
     const fields: Record<string, string> = {

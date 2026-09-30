@@ -117,20 +117,17 @@ export async function cadastrarEmbaixadorFirebase(
     tokenSmsValidado: dados.tokenSmsValidado !== false,
   };
 
-  // 1. Sincronizar imediatamente com a tabela "Afiliados" no Airtable
-  try {
-    const airtableRes = await enviarAfiliadoAirtable(novoAfiliado);
-    if (airtableRes.success) {
-      novoAfiliado.airtableSynced = true;
-      novoAfiliado.airtableRecordId = airtableRes.recordId;
-      if (airtableRes.codigo && airtableRes.linkAfiliado) {
-        novoAfiliado.id = airtableRes.codigo;
-        novoAfiliado.linkAfiliado = airtableRes.linkAfiliado;
-      }
-    }
-  } catch (airtableErr) {
-    console.warn('Aviso ao sincronizar com Airtable:', airtableErr);
+  // 1. Sincronizar com a tabela "Afiliados" no Airtable. O código e o link vêm do servidor
+  //    (para embaixador já cadastrado, são os que já estão no Airtable). Sem resposta válida,
+  //    o cadastro não é concluído, para nunca exibir um link que não existe no Airtable.
+  const airtableRes = await enviarAfiliadoAirtable(novoAfiliado);
+  if (!airtableRes.success || !airtableRes.linkAfiliado) {
+    throw new Error(airtableRes.error || 'Não foi possível concluir seu cadastro agora. Tente novamente em instantes.');
   }
+  novoAfiliado.airtableSynced = true;
+  novoAfiliado.airtableRecordId = airtableRes.recordId;
+  novoAfiliado.linkAfiliado = airtableRes.linkAfiliado;
+  if (airtableRes.codigo) novoAfiliado.id = airtableRes.codigo;
 
   // 2. Salvar no Firestore sob collection 'ambassadors' com doc id = uid
   try {
