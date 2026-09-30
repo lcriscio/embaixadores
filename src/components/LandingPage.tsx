@@ -22,7 +22,9 @@ import {
   Check,
   Smartphone,
   Layers,
-  LogIn
+  LogIn,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -47,6 +49,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [telefone, setTelefone] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [confirmacaoSenha, setConfirmacaoSenha] = useState('');
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [tipoChavePix, setTipoChavePix] = useState<'CPF' | 'CNPJ' | 'EMAIL' | 'TELEFONE' | 'ALEATORIA'>('CPF');
   const [chavePix, setChavePix] = useState('');
   const [cidade, setCidade] = useState('');
@@ -121,6 +125,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       setErrorMsg('Por favor, defina uma senha com no mínimo 6 caracteres para seus próximos acessos ao painel.');
       return;
     }
+    if (senha !== confirmacaoSenha) {
+      setErrorMsg('As senhas não conferem. Digite a mesma senha nos dois campos.');
+      return;
+    }
     if (!chavePix.trim()) {
       setErrorMsg('Por favor, informe a Chave PIX para recebimento das comissões.');
       return;
@@ -172,16 +180,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleRegister = async () => {
-    setErrorMsg('');
-    if (!nome.trim() || !documento.trim() || !telefone.trim() || !chavePix.trim()) {
-      setErrorMsg('Por favor, preencha Nome, Documento, WhatsApp e Chave PIX antes de autenticar.');
-      return;
-    }
-
-    setShowSmsModal(true);
   };
 
   return (
@@ -275,7 +273,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </div>
                   <div>
                     <h4 className="text-xs sm:text-sm font-bold text-[#2C2724]">
-                      Não pague nada para começar.
+                      Sem custo algum para você começar a faturar.
                     </h4>
                     <p className="text-[11px] text-[#556952] mt-0.5 leading-relaxed">
                       Cadastro 100% gratuito. Não há taxa de inscrição, mensalidade ou estoque inicial para comprar.
@@ -353,22 +351,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       <span className="font-bold text-[#B86B43] shrink-0">Atenção:</span>
                       <span className="leading-relaxed">{errorMsg}</span>
                     </div>
-                    {errorMsg.includes('Google') && (
-                      <button
-                        type="button"
-                        onClick={handleGoogleRegister}
-                        disabled={loading}
-                        className="w-full mt-1 py-2 px-3 rounded-xl bg-white border border-amber-300 hover:bg-amber-100/50 text-[#2C2724] text-[11px] font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                        </svg>
-                        <span>Cadastrar agora com Conta Google (1 clique)</span>
-                      </button>
-                    )}
                   </div>
                 )}
 
@@ -564,14 +546,57 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <div className="relative">
                       <Lock className="w-4 h-4 text-[#A39990] absolute left-3.5 top-2.5" />
                       <input
-                        type="password"
+                        type={mostrarSenha ? 'text' : 'password'}
                         required
+                        autoComplete="new-password"
                         placeholder="Mínimo de 6 caracteres"
                         value={senha}
                         onChange={(e) => setSenha(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 text-xs rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#B86B43] transition-all"
+                        className="w-full pl-10 pr-10 py-2 text-xs rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#B86B43] transition-all"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setMostrarSenha((v) => !v)}
+                        aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                        title={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                        className="absolute right-3 top-2 text-[#A39990] hover:text-[#2C2724] cursor-pointer"
+                      >
+                        {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
+                  </div>
+
+                  {/* 12. Confirmação da senha */}
+                  <div>
+                    <label className="text-xs font-medium text-[#2C2724] block mb-1">
+                      Repita a senha <span className="text-[#B86B43] font-bold">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-[#A39990] absolute left-3.5 top-2.5" />
+                      <input
+                        type={mostrarSenha ? 'text' : 'password'}
+                        required
+                        autoComplete="new-password"
+                        placeholder="Digite a mesma senha"
+                        value={confirmacaoSenha}
+                        onChange={(e) => setConfirmacaoSenha(e.target.value)}
+                        className={`w-full pl-10 pr-10 py-2 text-xs rounded-xl border bg-[#FAF7F2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#B86B43] transition-all ${
+                          confirmacaoSenha && confirmacaoSenha !== senha ? 'border-red-300' : 'border-[#D9CFC4]'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMostrarSenha((v) => !v)}
+                        aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                        title={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                        className="absolute right-3 top-2 text-[#A39990] hover:text-[#2C2724] cursor-pointer"
+                      >
+                        {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {confirmacaoSenha && confirmacaoSenha !== senha && (
+                      <p className="text-[10px] text-red-600 mt-0.5">As senhas não conferem.</p>
+                    )}
                     <p className="text-[10px] text-[#7A7169] mt-0.5">Após validar o SMS hoje, você usará seu e-mail e esta senha para entrar no painel nas próximas vezes.</p>
                   </div>
 
@@ -614,24 +639,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       </>
                     )}
                   </button>
-
-                  {/* Google Alternative Registration */}
-                  <div className="pt-2 text-center">
-                    <button
-                      type="button"
-                      onClick={handleGoogleRegister}
-                      disabled={loading}
-                      className="w-full py-2.5 px-3 rounded-xl border border-[#D9CFC4] bg-white hover:bg-[#FAF7F2] text-[11px] font-semibold text-[#2C2724] flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-                    >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                      </svg>
-                      <span>Ou cadastrar com Google (1 clique)</span>
-                    </button>
-                  </div>
 
                   {/* Link to login */}
                   <div className="pt-2 text-center text-xs text-[#7A7169]">
@@ -830,15 +837,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 className="text-[#B86B43] hover:underline font-medium cursor-pointer"
               >
                 Termos de Uso do Programa
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => onOpenAuthModal?.()}
-                className="text-[#7A7169] hover:text-[#2C2724] font-medium cursor-pointer"
-                title="Acesso exclusivo para administradores Can Candles"
-              >
-                Acesso Diretoria
               </button>
             </div>
           </div>
