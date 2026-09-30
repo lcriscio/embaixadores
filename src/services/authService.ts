@@ -123,6 +123,10 @@ export async function cadastrarEmbaixadorFirebase(
     if (airtableRes.success) {
       novoAfiliado.airtableSynced = true;
       novoAfiliado.airtableRecordId = airtableRes.recordId;
+      if (airtableRes.codigo && airtableRes.linkAfiliado) {
+        novoAfiliado.id = airtableRes.codigo;
+        novoAfiliado.linkAfiliado = airtableRes.linkAfiliado;
+      }
     }
   } catch (airtableErr) {
     console.warn('Aviso ao sincronizar com Airtable:', airtableErr);
