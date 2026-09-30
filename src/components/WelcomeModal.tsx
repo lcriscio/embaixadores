@@ -35,8 +35,8 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Link enxuto com UTM correta conforme solicitado pelo usuário
-  const linkComUtm = linkIndicacao(afiliado.id);
+  // Link salvo no Airtable (fonte oficial); o montado pelo código é só fallback
+  const linkComUtm = afiliado.linkAfiliado || linkIndicacao(afiliado.id);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(linkComUtm);
