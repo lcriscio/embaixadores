@@ -17,15 +17,25 @@ import { observarAutenticacao, logoutFirebase, isUserAdmin } from './services/au
 import { User } from 'firebase/auth';
 import { Afiliado, LeadIndicacao, NotaFiscal, CampanhaConfig } from './types';
 import { UserCheck, ShieldCheck, LogIn, ArrowLeft } from 'lucide-react';
+import { useEstadoDaSessao } from './utils/useEstadoDaSessao';
+
+type View = 'landing' | 'afiliado' | 'admin' | 'lead-landing';
+
+// 'lead-landing' fica de fora: só é aberta pelos parâmetros da URL
+const VIEWS_LEMBRADAS: unknown[] = ['landing', 'afiliado', 'admin'];
+const CHAVE_ROLAGEM = 'cancandles_rolagem';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'landing' | 'afiliado' | 'admin' | 'lead-landing'>('landing');
+  // Lembrada ao recarregar a página, para a pessoa continuar onde estava
+  const [currentView, setCurrentView] = useEstadoDaSessao<View>('cancandles_view', 'landing', (v) => VIEWS_LEMBRADAS.includes(v));
   const [afiliados, setAfiliados] = useState<Afiliado[]>([]);
   const [leads, setLeads] = useState<LeadIndicacao[]>([]);
   const [notasFiscais, setNotasFiscais] = useState<NotaFiscal[]>([]);
   const [campanha, setCampanha] = useState<CampanhaConfig>(getCampanhaConfig());
   const [currentAfiliadoId, setCurrentId] = useState<string>('');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // false até o Firebase responder se existe sessão: evita mostrar a tela de login por engano
+  const [authPronto, setAuthPronto] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
 
   const loadData = useCallback(() => {
@@ -48,6 +58,7 @@ export default function App() {
     // Listen to Firebase Auth state
     const unsubscribeAuth = observarAutenticacao((user) => {
       setCurrentUser(user);
+      setAuthPronto(true);
       if (user && user.email) {
         const all = getAfiliados();
         const matched = all.find(a => a.email.toLowerCase() === user.email?.toLowerCase());
@@ -97,6 +108,51 @@ export default function App() {
       window.removeEventListener('cancandles_afiliado_changed', handleAfiliadoChange);
     };
   }, [loadData]);
+
+  // Guarda a altura da rolagem ao sair/recarregar; a restauração é feita abaixo, quando o conteúdo existir
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
+    const salvarRolagem = () => {
+      try {
+        sessionStorage.setItem(CHAVE_ROLAGEM, String(Math.round(window.scrollY)));
+      } catch {
+        // sem sessionStorage, a rolagem só não é lembrada
+      }
+    };
+    window.addEventListener('pagehide', salvarRolagem);
+    return () => window.removeEventListener('pagehide', salvarRolagem);
+  }, []);
+
+  // Ao recarregar, volta para a altura em que a pessoa estava. Espera a página ter altura
+  // suficiente (o conteúdo da área logada só aparece depois do login carregar).
+  useEffect(() => {
+    if (!authPronto) return;
+    let alvo = 0;
+    try {
+      alvo = Number(sessionStorage.getItem(CHAVE_ROLAGEM)) || 0;
+    } catch {
+      return;
+    }
+    if (alvo <= 0) return;
+
+    const inicio = Date.now();
+    const timer = window.setInterval(() => {
+      const alturaRolavel = document.documentElement.scrollHeight - window.innerHeight;
+      if (alturaRolavel >= alvo || Date.now() - inicio > 3000) {
+        window.scrollTo(0, alvo);
+        parar();
+      }
+    }, 100);
+    // Se a pessoa começar a rolar por conta própria, não disputa com ela
+    const parar = () => {
+      window.clearInterval(timer);
+      window.removeEventListener('wheel', parar);
+      window.removeEventListener('touchstart', parar);
+    };
+    window.addEventListener('wheel', parar, { passive: true });
+    window.addEventListener('touchstart', parar, { passive: true });
+    return parar;
+  }, [authPronto]);
 
   const currentAfiliado = afiliados.find(a => a.id === currentAfiliadoId) || afiliados[0] || null;
   const isAdmin = isUserAdmin(currentUser);
@@ -168,7 +224,11 @@ export default function App() {
         )}
 
         {/* 1/ Área do Embaixador: Protegida por Login */}
-        {currentView === 'afiliado' && (
+        {(currentView === 'afiliado' || currentView === 'admin') && !authPronto && (
+          <div className="my-24 text-center text-xs text-[#7A7169]">Carregando…</div>
+        )}
+
+        {currentView === 'afiliado' && authPronto && (
           currentUser ? (
             currentAfiliado && (
               <AmbassadorArea
@@ -209,7 +269,7 @@ export default function App() {
         )}
 
         {/* 3/ Área Can Candles: Exclusiva para administradores (leo@cancandles.com.br) */}
-        {currentView === 'admin' && (
+        {currentView === 'admin' && authPronto && (
           isAdmin ? (
             <AdminArea
               afiliados={afiliados}

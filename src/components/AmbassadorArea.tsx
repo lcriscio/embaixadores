@@ -31,6 +31,11 @@ import {
 } from 'lucide-react';
 import { linkIndicacao } from '../utils/linkIndicacao';
 import { buscarPainelEmbaixador, PainelDados } from '../services/painelService';
+import { useEstadoDaSessao } from '../utils/useEstadoDaSessao';
+
+type AbaEmbaixador = 'treinamento' | 'calculadora_historico' | 'leads' | 'materiais' | 'perfil_nf';
+const ABAS_EMBAIXADOR: unknown[] = ['treinamento', 'calculadora_historico', 'leads', 'materiais', 'perfil_nf'];
+const sessaoValida = (v: unknown) => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 5;
 
 interface AmbassadorAreaProps {
   afiliado: Afiliado;
@@ -48,11 +53,16 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
   onRefreshData,
 }) => {
   // Navigation within the ambassador area
-  const [activeTab, setActiveTab] = useState<'treinamento' | 'calculadora_historico' | 'leads' | 'materiais' | 'perfil_nf'>('treinamento');
+  // Aba e sessão do treinamento são lembradas ao recarregar a página
+  const [activeTab, setActiveTab] = useEstadoDaSessao<AbaEmbaixador>('cancandles_aba_embaixador', 'treinamento', (v) => ABAS_EMBAIXADOR.includes(v));
   
   // Specific session inside training (1 to 5)
-  const [activeSession, setActiveSession] = useState<number>(1);
-  const [completedSessions, setCompletedSessions] = useState<number[]>([1]);
+  const [activeSession, setActiveSession] = useEstadoDaSessao<number>('cancandles_sessao_treinamento', 1, sessaoValida);
+  const [completedSessions, setCompletedSessions] = useEstadoDaSessao<number[]>(
+    'cancandles_sessoes_concluidas',
+    [1],
+    (v) => Array.isArray(v) && v.every(sessaoValida),
+  );
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(!afiliado.termosAceitos);

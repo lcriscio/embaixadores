@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useEstadoDaSessao } from '../utils/useEstadoDaSessao';
 import { Afiliado, LeadIndicacao, NotaFiscal, CampanhaConfig, AirtableConfig, AirtableSyncLog, AdminInvite } from '../types';
 import { 
   saveAfiliados, 
@@ -64,7 +65,12 @@ export const AdminArea: React.FC<AdminAreaProps> = ({
   campanha,
   onRefreshData,
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'graficos' | 'afiliados' | 'financeiro' | 'notas' | 'campanhas' | 'airtable' | 'verificador'>('graficos');
+  // Aba lembrada ao recarregar a página
+  const [activeAdminTab, setActiveAdminTab] = useEstadoDaSessao<'graficos' | 'afiliados' | 'financeiro' | 'notas' | 'campanhas' | 'airtable' | 'verificador'>(
+    'cancandles_aba_admin',
+    'graficos',
+    (v) => (['graficos', 'afiliados', 'financeiro', 'notas', 'campanhas', 'airtable', 'verificador'] as unknown[]).includes(v),
+  );
   
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
