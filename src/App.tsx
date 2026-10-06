@@ -177,7 +177,6 @@ export default function App() {
                 notasFiscais={notasFiscais}
                 onAfiliadoUpdated={() => loadData()}
                 onRefreshData={loadData}
-                onOpenLeadLanding={() => setCurrentView('lead-landing')}
               />
             )
           ) : (

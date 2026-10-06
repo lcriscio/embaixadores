@@ -17,11 +17,26 @@ export interface PainelPedido {
   formaPagamento: string;
   statusSinal: string;
   statusSaldo: string;
+  /** AAAA-MM-DD */
+  dataPagamentoSinal: string | null;
+  /** AAAA-MM-DD */
+  dataPagamentoSaldo: string | null;
+  /** Fração: 0.1 = 10% */
+  comissaoPercentual: number | null;
+  comissaoValor: number | null;
+}
+
+export interface PainelComissaoMensal {
+  /** AAAA-MM */
+  mes: string;
+  valor: number;
+  status: 'A ser apurado' | 'Aguardando nota fiscal' | 'Paga';
 }
 
 export interface PainelDados {
   metricas: PainelMetricas;
   pedidos: PainelPedido[];
+  comissoes: PainelComissaoMensal[];
 }
 
 /**
@@ -40,5 +55,5 @@ export async function buscarPainelEmbaixador(): Promise<PainelDados> {
   if (!res.ok || !data.success) {
     throw new Error(data.error || `Erro HTTP ${res.status}`);
   }
-  return { metricas: data.metricas, pedidos: data.pedidos };
+  return { metricas: data.metricas, pedidos: data.pedidos, comissoes: data.comissoes ?? [] };
 }

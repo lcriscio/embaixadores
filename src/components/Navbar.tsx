@@ -220,7 +220,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }`}
                   >
                     <UserCheck className="w-3.5 h-3.5" />
-                    <span>Meu Painel do Embaixador</span>
+                    <span>Painel do Embaixador</span>
                   </button>
                 </nav>
 
@@ -350,7 +350,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <UserCheck className="w-4 h-4" />
-                    <span>Meu Painel do Embaixador ({currentAfiliado?.nome?.split(' ')[0]})</span>
+                    <span>Painel do Embaixador ({currentAfiliado?.nome?.split(' ')[0]})</span>
                   </div>
                   <ArrowRight className="w-4 h-4 opacity-70" />
                 </button>
