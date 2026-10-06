@@ -42,7 +42,7 @@ const P = {
   statusSaldo: 'fldfDI9vLsR9hqNg2', // [ Autocomplete ] Status da Cobrança do Saldo deste pedido
   dataPagamentoSinal: 'fldQNRLwkpIpeTG9w', // [ Autocomplete ] Data do Pagamento do Sinal ou Valor Cheio deste Pedido
   dataPagamentoSaldo: 'fldyeNOWfdh5Du0HY', // [ Autocomplete ] Data do Pagamento do Saldo deste pedido
-  comissaoAfiliado: 'fld2lw9C77wtNx2E4', // [ Autocomplete ] Comissão do Afiliado referente a este pedido (percentual)
+  comissaoAfiliado: 'fld2lw9C77wtNx2E4', // [ Autocomplete ] Comissão do Afiliado referente a este pedido (R$)
   dataPagamentoComissao: 'fldCmVaeGPIps8RTn', // [ Preencher ] Data do pagamento da comissão ao Afiliado
   afiliado: 'fldVYvtDWzc2TSBQ1', // [ Autocomplete ] Existe Afiliado associado a esse pedido?
 };
@@ -258,17 +258,16 @@ export async function GET(request: Request): Promise<Response> {
         const precoFinal = typeof f[P.precoFinal] === 'number' ? f[P.precoFinal] : null;
         const dataPagamentoSinal: string | null = f[P.dataPagamentoSinal] || null;
         const dataPagamentoSaldo: string | null = f[P.dataPagamentoSaldo] || null;
-        const comissaoPercentual = typeof f[P.comissaoAfiliado] === 'number' ? f[P.comissaoAfiliado] : null;
         const comissaoValor =
-          comissaoPercentual !== null && precoFinal !== null
-            ? Math.round(comissaoPercentual * precoFinal * 100) / 100
-            : null;
+          typeof f[P.comissaoAfiliado] === 'number' ? Math.round(f[P.comissaoAfiliado] * 100) / 100 : null;
 
         contatoIds.forEach((id) => contatosQueOrcaram.add(id));
         if (pedidoPago100(forma, sinal, saldo)) {
           contatoIds.forEach((id) => contatosQuePagaram.add(id));
-          // A comissão entra no mês em que o pedido foi quitado
-          const dataQuitacao = (saldo === PAGO && dataPagamentoSaldo) || dataPagamentoSinal;
+          // A comissão é devida no mês do último pagamento: no valor cheio só existe a data do
+          // sinal/valor cheio; nos demais, vale a mais recente entre a do sinal e a do saldo
+          const datasPagamento = forma === VALOR_CHEIO ? [dataPagamentoSinal] : [dataPagamentoSinal, dataPagamentoSaldo];
+          const dataQuitacao = datasPagamento.filter(Boolean).sort().pop();
           if (comissaoValor && dataQuitacao) {
             const mes = dataQuitacao.slice(0, 7);
             const acumulado = comissaoPorMes.get(mes) || { valor: 0, todasPagas: true };
@@ -292,7 +291,6 @@ export async function GET(request: Request): Promise<Response> {
           statusSaldo: forma === VALOR_CHEIO ? 'Não se aplica' : saldo || A_DEFINIR,
           dataPagamentoSinal,
           dataPagamentoSaldo,
-          comissaoPercentual,
           comissaoValor,
         };
       })
