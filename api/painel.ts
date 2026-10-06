@@ -43,6 +43,7 @@ const P = {
   dataPagamentoSinal: 'fldQNRLwkpIpeTG9w', // [ Autocomplete ] Data do Pagamento do Sinal ou Valor Cheio deste Pedido
   dataPagamentoSaldo: 'fldyeNOWfdh5Du0HY', // [ Autocomplete ] Data do Pagamento do Saldo deste pedido
   comissaoAfiliado: 'fld2lw9C77wtNx2E4', // [ Autocomplete ] Comissão do Afiliado referente a este pedido (percentual)
+  dataPagamentoComissao: 'fldCmVaeGPIps8RTn', // [ Preencher ] Data do pagamento da comissão ao Afiliado
   afiliado: 'fldVYvtDWzc2TSBQ1', // [ Autocomplete ] Existe Afiliado associado a esse pedido?
 };
 
@@ -54,6 +55,7 @@ const SALDO_DISPENSADO = 'Não há necessidade de emitir cobrança';
 
 const COMISSAO_A_APURAR = 'A ser apurado';
 const COMISSAO_AGUARDANDO_NF = 'Aguardando nota fiscal';
+const COMISSAO_PAGA = 'Paga';
 
 interface FirebaseClaims {
   iss: string;
@@ -241,8 +243,9 @@ export async function GET(request: Request): Promise<Response> {
     // 4. Métricas por contato (um contato pode ter mais de um pedido)
     const contatosQueOrcaram = new Set<string>();
     const contatosQuePagaram = new Set<string>();
-    // Comissão por mês em que o pedido foi 100% pago (AAAA-MM -> R$)
-    const comissaoPorMes = new Map<string, number>();
+    // Comissão por mês em que o pedido foi 100% pago (AAAA-MM). O mês só conta como pago
+    // quando todos os pedidos dele têm a data do pagamento da comissão preenchida.
+    const comissaoPorMes = new Map<string, { valor: number; todasPagas: boolean }>();
 
     const pedidos = pedidosDoAfiliado
       .map((r) => {
@@ -268,7 +271,11 @@ export async function GET(request: Request): Promise<Response> {
           const dataQuitacao = (saldo === PAGO && dataPagamentoSaldo) || dataPagamentoSinal;
           if (comissaoValor && dataQuitacao) {
             const mes = dataQuitacao.slice(0, 7);
-            comissaoPorMes.set(mes, (comissaoPorMes.get(mes) || 0) + comissaoValor);
+            const acumulado = comissaoPorMes.get(mes) || { valor: 0, todasPagas: true };
+            comissaoPorMes.set(mes, {
+              valor: acumulado.valor + comissaoValor,
+              todasPagas: acumulado.todasPagas && Boolean(f[P.dataPagamentoComissao]),
+            });
           }
         }
 
@@ -291,14 +298,15 @@ export async function GET(request: Request): Promise<Response> {
       })
       .sort((a, b) => String(b.dataCriacao).localeCompare(String(a.dataCriacao)));
 
-    // Mês ainda aberto: comissão em apuração. Mês fechado: aguardando a nota fiscal do embaixador.
+    // Comissão já paga pela Can: "Paga". Senão, mês ainda aberto: em apuração; mês fechado:
+    // aguardando a nota fiscal do embaixador.
     const mesCorrente = mesAtual();
     const comissoes = [...comissaoPorMes.entries()]
       .sort(([a], [b]) => b.localeCompare(a))
-      .map(([mes, valor]) => ({
+      .map(([mes, { valor, todasPagas }]) => ({
         mes,
         valor: Math.round(valor * 100) / 100,
-        status: mes >= mesCorrente ? COMISSAO_A_APURAR : COMISSAO_AGUARDANDO_NF,
+        status: todasPagas ? COMISSAO_PAGA : mes >= mesCorrente ? COMISSAO_A_APURAR : COMISSAO_AGUARDANDO_NF,
       }));
 
     const totalContatosIndicados = contatosIndicados.length;
