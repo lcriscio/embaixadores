@@ -141,10 +141,6 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
     return `${MESES[Number(m) - 1]} de ${ano}`;
   };
 
-  const formatPercentual = (fracao: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 }).format(fracao);
-  };
-
   // Link salvo no Airtable (fonte oficial); o montado pelo código é só fallback
   const linkComUtm = useMemo(() => {
     return afiliado.linkAfiliado || linkIndicacao(afiliado.id);
@@ -1087,16 +1083,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                             {formatData(pedido.dataPagamentoSaldo)}
                           </td>
                           <td className="py-3 px-4 font-mono font-medium whitespace-nowrap">
-                            {pedido.comissaoPercentual === null ? (
-                              '—'
-                            ) : (
-                              <>
-                                {pedido.comissaoValor !== null && formatBRL(pedido.comissaoValor)}{' '}
-                                <span className="font-sans font-normal text-[11px] text-[#7A7169]">
-                                  ({formatPercentual(pedido.comissaoPercentual)})
-                                </span>
-                              </>
-                            )}
+                            {pedido.comissaoValor !== null ? formatBRL(pedido.comissaoValor) : '—'}
                           </td>
                         </tr>
                       ))

@@ -21,8 +21,7 @@ export interface PainelPedido {
   dataPagamentoSinal: string | null;
   /** AAAA-MM-DD */
   dataPagamentoSaldo: string | null;
-  /** Fração: 0.1 = 10% */
-  comissaoPercentual: number | null;
+  /** R$ */
   comissaoValor: number | null;
 }
 
