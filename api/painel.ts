@@ -5,6 +5,7 @@
  * - Contatos indicados: "[ Autocomplete ] Contatos associados a esse Afiliado" (tabela Afiliados)
  * - Pedidos: registros de Pedidos cujo "[ Autocomplete ] Existe Afiliado associado a esse pedido?"
  *   aponta para este afiliado
+ * - Comissões a receber: soma, por mês de quitação, da comissão dos pedidos 100% pagos
  *
  * O embaixador é identificado pelo WhatsApp validado por SMS (claim phone_number do ID Token do
  * Firebase), então cada um só enxerga os próprios dados.
@@ -39,6 +40,9 @@ const P = {
   formaPagamento: 'fldtCRpgKQJy8WOsA', // [ Preencher ] Como esse pedido será pago
   statusSinal: 'fldmAdlGqtAXP55IQ', // [ Autocomplete ] Status da Cobrança do Sinal ou Valor Cheio deste pedido
   statusSaldo: 'fldfDI9vLsR9hqNg2', // [ Autocomplete ] Status da Cobrança do Saldo deste pedido
+  dataPagamentoSinal: 'fldQNRLwkpIpeTG9w', // [ Autocomplete ] Data do Pagamento do Sinal ou Valor Cheio deste Pedido
+  dataPagamentoSaldo: 'fldyeNOWfdh5Du0HY', // [ Autocomplete ] Data do Pagamento do Saldo deste pedido
+  comissaoAfiliado: 'fld2lw9C77wtNx2E4', // [ Autocomplete ] Comissão do Afiliado referente a este pedido (percentual)
   afiliado: 'fldVYvtDWzc2TSBQ1', // [ Autocomplete ] Existe Afiliado associado a esse pedido?
 };
 
@@ -47,6 +51,9 @@ const VALOR_CHEIO = 'Valor cheio';
 const PAGO = 'Pago';
 // Saldo zerado: a Automação D marca "Não há necessidade de emitir cobrança"
 const SALDO_DISPENSADO = 'Não há necessidade de emitir cobrança';
+
+const COMISSAO_A_APURAR = 'A ser apurado';
+const COMISSAO_AGUARDANDO_NF = 'Aguardando nota fiscal';
 
 interface FirebaseClaims {
   iss: string;
@@ -161,6 +168,14 @@ function pedidoPago100(forma: string, sinal: string, saldo: string): boolean {
   return forma === VALOR_CHEIO || saldo === PAGO || saldo === SALDO_DISPENSADO;
 }
 
+/** Mês corrente (AAAA-MM) no horário de Brasília. */
+function mesAtual(): string {
+  const partes = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' })
+    .formatToParts(new Date());
+  const parte = (tipo: string) => partes.find((p) => p.type === tipo)?.value || '';
+  return `${parte('year')}-${parte('month')}`;
+}
+
 export async function GET(request: Request): Promise<Response> {
   if (!process.env.AIRTABLE_PAT) {
     return json(500, { success: false, error: 'AIRTABLE_PAT não configurado na Vercel.' });
@@ -226,6 +241,8 @@ export async function GET(request: Request): Promise<Response> {
     // 4. Métricas por contato (um contato pode ter mais de um pedido)
     const contatosQueOrcaram = new Set<string>();
     const contatosQuePagaram = new Set<string>();
+    // Comissão por mês em que o pedido foi 100% pago (AAAA-MM -> R$)
+    const comissaoPorMes = new Map<string, number>();
 
     const pedidos = pedidosDoAfiliado
       .map((r) => {
@@ -235,8 +252,25 @@ export async function GET(request: Request): Promise<Response> {
         const sinal = nomeOpcao(f[P.statusSinal]);
         const saldo = nomeOpcao(f[P.statusSaldo]);
 
+        const precoFinal = typeof f[P.precoFinal] === 'number' ? f[P.precoFinal] : null;
+        const dataPagamentoSinal: string | null = f[P.dataPagamentoSinal] || null;
+        const dataPagamentoSaldo: string | null = f[P.dataPagamentoSaldo] || null;
+        const comissaoPercentual = typeof f[P.comissaoAfiliado] === 'number' ? f[P.comissaoAfiliado] : null;
+        const comissaoValor =
+          comissaoPercentual !== null && precoFinal !== null
+            ? Math.round(comissaoPercentual * precoFinal * 100) / 100
+            : null;
+
         contatoIds.forEach((id) => contatosQueOrcaram.add(id));
-        if (pedidoPago100(forma, sinal, saldo)) contatoIds.forEach((id) => contatosQuePagaram.add(id));
+        if (pedidoPago100(forma, sinal, saldo)) {
+          contatoIds.forEach((id) => contatosQuePagaram.add(id));
+          // A comissão entra no mês em que o pedido foi quitado
+          const dataQuitacao = (saldo === PAGO && dataPagamentoSaldo) || dataPagamentoSinal;
+          if (comissaoValor && dataQuitacao) {
+            const mes = dataQuitacao.slice(0, 7);
+            comissaoPorMes.set(mes, (comissaoPorMes.get(mes) || 0) + comissaoValor);
+          }
+        }
 
         return {
           id: r.id,
@@ -244,14 +278,28 @@ export async function GET(request: Request): Promise<Response> {
           estagio: nomeOpcao(f[P.estagio]) || A_DEFINIR,
           nomeContato: contatoIds.map((id) => nomes.get(id)).filter(Boolean).join(', ') || '—',
           detalhamento: f[P.detalhamento] || '',
-          precoFinal: typeof f[P.precoFinal] === 'number' ? f[P.precoFinal] : null,
+          precoFinal,
           formaPagamento: forma || A_DEFINIR,
           statusSinal: sinal || A_DEFINIR,
           // Pago como valor cheio: não existe saldo a cobrar
           statusSaldo: forma === VALOR_CHEIO ? 'Não se aplica' : saldo || A_DEFINIR,
+          dataPagamentoSinal,
+          dataPagamentoSaldo,
+          comissaoPercentual,
+          comissaoValor,
         };
       })
       .sort((a, b) => String(b.dataCriacao).localeCompare(String(a.dataCriacao)));
+
+    // Mês ainda aberto: comissão em apuração. Mês fechado: aguardando a nota fiscal do embaixador.
+    const mesCorrente = mesAtual();
+    const comissoes = [...comissaoPorMes.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([mes, valor]) => ({
+        mes,
+        valor: Math.round(valor * 100) / 100,
+        status: mes >= mesCorrente ? COMISSAO_A_APURAR : COMISSAO_AGUARDANDO_NF,
+      }));
 
     const totalContatosIndicados = contatosIndicados.length;
     const contatosOrcaram = contatosQueOrcaram.size;
@@ -265,6 +313,7 @@ export async function GET(request: Request): Promise<Response> {
         contatosPagaram100: contatosQuePagaram.size,
       },
       pedidos,
+      comissoes,
     });
   } catch (e: any) {
     console.error('Erro Airtable /api/painel:', e);

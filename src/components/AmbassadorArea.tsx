@@ -22,7 +22,6 @@ import {
   FileCheck,
   Download,
   Info,
-  ExternalLink,
   ChevronRight,
   BookOpen,
   UserCheck,
@@ -39,7 +38,6 @@ interface AmbassadorAreaProps {
   notasFiscais: NotaFiscal[];
   onAfiliadoUpdated: (afiliado: Afiliado) => void;
   onRefreshData: () => void;
-  onOpenLeadLanding?: () => void;
 }
 
 export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
@@ -48,7 +46,6 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
   notasFiscais,
   onAfiliadoUpdated,
   onRefreshData,
-  onOpenLeadLanding,
 }) => {
   // Navigation within the ambassador area
   const [activeTab, setActiveTab] = useState<'treinamento' | 'calculadora_historico' | 'leads' | 'materiais' | 'perfil_nf'>('treinamento');
@@ -106,6 +103,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
   const contatosNaoOrcaram = painel?.metricas.contatosNaoOrcaram ?? 0;
   const contatosPagaram100 = painel?.metricas.contatosPagaram100 ?? 0;
   const pedidosCrm = painel?.pedidos ?? [];
+  const comissoesCrm = painel?.comissoes ?? [];
   const exibirMetrica = (valor: number) => (painelCarregando && !painel ? '…' : valor);
 
   // Total de faturamento gerado elegível
@@ -130,6 +128,23 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
+  // Datas do Airtable vêm como AAAA-MM-DD (sem hora): formata sem passar por fuso horário
+  const formatData = (data: string | null) => {
+    if (!data) return '—';
+    const [ano, mes, dia] = data.slice(0, 10).split('-');
+    return `${dia}/${mes}/${ano}`;
+  };
+
+  const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const formatMes = (mes: string) => {
+    const [ano, m] = mes.split('-');
+    return `${MESES[Number(m) - 1]} de ${ano}`;
+  };
+
+  const formatPercentual = (fracao: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 }).format(fracao);
+  };
+
   // Link salvo no Airtable (fonte oficial); o montado pelo código é só fallback
   const linkComUtm = useMemo(() => {
     return afiliado.linkAfiliado || linkIndicacao(afiliado.id);
@@ -142,7 +157,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
   };
 
   const handleShareWhatsApp = () => {
-    const text = encodeURIComponent(`Olá! Recomendo os produtos olfativos exclusivos e velas aromáticas da Can Candles & Wellness. Acesse meu link oficial de indicação para receber atendimento prioritário da equipe: ${linkComUtm}`);
+    const text = encodeURIComponent(`Olá, aqui está o link para você criar produtos aromáticos personalizados, com seu cheirinho: ${linkComUtm}. É só clicar, colocar seus dados e o time da Can Candles vai entrar em contato`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
@@ -257,11 +272,11 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
               </p>
             </div>
 
-            {/* Quick Link Share Bar com UTM_Source */}
+            {/* Quick Link Share Bar */}
             <div className="flex flex-wrap items-center gap-2.5 bg-white/5 border border-white/10 p-2.5 rounded-xl">
               <div className="text-left">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-[#A69C93] block">Link com UTM_Source:</span>
+                  <span className="text-[10px] text-[#A69C93] block">Meu link único para indicar</span>
                   <span className="text-[9px] bg-[#B86B43]/30 text-[#E8DFD4] font-semibold px-1.5 py-0.2 rounded">
                     Rastreado
                   </span>
@@ -274,10 +289,10 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                 <button
                   onClick={handleCopyLink}
                   className="px-3 py-1.5 bg-[#B86B43] hover:bg-[#A35C36] text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Copiar link rastreado com UTM_Source"
+                  title="Copiar meu link"
                 >
                   {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedLink ? 'Copiado!' : 'Copiar Link UTM'}</span>
+                  <span>{copiedLink ? 'Copiado!' : 'Copiar meu link'}</span>
                 </button>
                 <button
                   onClick={handleShareWhatsApp}
@@ -287,16 +302,6 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                   <Share2 className="w-3.5 h-3.5" />
                   <span>WhatsApp</span>
                 </button>
-                {onOpenLeadLanding && (
-                  <button
-                    onClick={onOpenLeadLanding}
-                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                    title="Pré-visualizar como o seu contato verá a página"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Ver Prévia do Lead</span>
-                  </button>
-                )}
               </div>
             </div>
 
@@ -409,7 +414,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Minhas Indicações ({meusLeads.length})</span>
+            <span>Meus resultados</span>
           </button>
 
           <button
@@ -1031,19 +1036,22 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                       <th className="py-3 px-4">Preço do Pedido</th>
                       <th className="py-3 px-4">Forma de Pagamento</th>
                       <th className="py-3 px-4">Status do sinal/valor cheio a pagar</th>
+                      <th className="py-3 px-4">Data do Pagamento do Sinal/Valor Cheio deste pedido</th>
                       <th className="py-3 px-4">Status do saldo a pagar</th>
+                      <th className="py-3 px-4">Data do Pagamento do Saldo deste pedido</th>
+                      <th className="py-3 px-4">Comissão devida para o Embaixador</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F0E7DD]">
                     {painelCarregando && !painel ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-xs text-[#7A7169]">
+                        <td colSpan={11} className="py-8 text-center text-xs text-[#7A7169]">
                           Carregando seus pedidos…
                         </td>
                       </tr>
                     ) : pedidosCrm.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-xs text-[#7A7169]">
+                        <td colSpan={11} className="py-8 text-center text-xs text-[#7A7169]">
                           Nenhum pedido dos seus contatos indicados ainda. Compartilhe seu link exclusivo para iniciar seus comissionamentos!
                         </td>
                       </tr>
@@ -1067,10 +1075,28 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                               {pedido.statusSinal}
                             </span>
                           </td>
+                          <td className="py-3 px-4 font-mono text-[11px] text-[#7A7169] whitespace-nowrap">
+                            {formatData(pedido.dataPagamentoSinal)}
+                          </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${pedido.statusSaldo === 'Pago' ? 'text-[#5B6E58] bg-[#EEF3ED]' : 'text-[#7A7169] bg-[#FAF7F2] border border-[#E8DFD4]'}`}>
                               {pedido.statusSaldo}
                             </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-[11px] text-[#7A7169] whitespace-nowrap">
+                            {formatData(pedido.dataPagamentoSaldo)}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-medium whitespace-nowrap">
+                            {pedido.comissaoPercentual === null ? (
+                              '—'
+                            ) : (
+                              <>
+                                {pedido.comissaoValor !== null && formatBRL(pedido.comissaoValor)}{' '}
+                                <span className="font-sans font-normal text-[11px] text-[#7A7169]">
+                                  ({formatPercentual(pedido.comissaoPercentual)})
+                                </span>
+                              </>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -1084,31 +1110,77 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
           </div>
         )}
 
-        {/* Tab 3: Minhas Indicações (Leads) */}
+        {/* Tab 3: Meus resultados */}
         {activeTab === 'leads' && (
           <div className="bg-white rounded-b-2xl border-x border-b border-[#E8DFD4] p-6 sm:p-8 space-y-6">
             
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-[#B86B43]">
-                  Pipeline de Relacionamento
-                </span>
-                <h2 className="font-serif text-2xl font-bold text-[#2C2724] mt-0.5">
-                  Minhas Indicações & Oportunidades
-                </h2>
-                <p className="text-xs text-[#7A7169]">
-                  Contatos que se cadastraram ou foram atendidos através do seu link exclusivo.
-                </p>
-              </div>
+            <div>
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#B86B43]">
+                Pipeline de Relacionamento
+              </span>
+              <h2 className="font-serif text-2xl font-bold text-[#2C2724] mt-0.5">
+                Meus resultados
+              </h2>
+              <p className="text-xs text-[#7A7169]">
+                Suas comissões por mês e os contatos que chegaram através do seu link exclusivo.
+              </p>
+            </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCopyLink}
-                  className="px-4 py-2 bg-[#B86B43] hover:bg-[#A35C36] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Convidar Novo Contato</span>
-                </button>
+            {/* Comissões a receber, por mês (dados do CRM) */}
+            <div>
+              <h3 className="font-serif text-lg font-bold text-[#2C2724] mb-3">Comissões a receber</h3>
+              <div className="overflow-x-auto rounded-xl border border-[#E8DFD4]">
+                <table className="w-full text-left text-xs text-[#2C2724]">
+                  <thead className="bg-[#FAF7F2] text-[11px] font-semibold text-[#7A7169] border-b border-[#E8DFD4] uppercase">
+                    <tr>
+                      <th className="py-3 px-4">Mês</th>
+                      <th className="py-3 px-4">Comissão a receber</th>
+                      <th className="py-3 px-4">Status da comissão</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F0E7DD]">
+                    {painelCarregando && !painel ? (
+                      <tr>
+                        <td colSpan={3} className="py-8 text-center text-xs text-[#7A7169]">
+                          Carregando suas comissões…
+                        </td>
+                      </tr>
+                    ) : painelErro && !painel ? (
+                      <tr>
+                        <td colSpan={3} className="py-8 text-center text-xs text-red-700">
+                          {painelErro}{' '}
+                          <button type="button" onClick={carregarPainel} className="underline font-semibold cursor-pointer">
+                            Tentar novamente
+                          </button>
+                        </td>
+                      </tr>
+                    ) : comissoesCrm.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="py-8 text-center text-xs text-[#7A7169]">
+                          Nenhuma comissão a receber ainda. Ela aparece aqui quando um pedido dos seus contatos indicados é 100% pago.
+                        </td>
+                      </tr>
+                    ) : (
+                      comissoesCrm.map((comissao) => (
+                        <tr key={comissao.mes} className="hover:bg-[#FAF7F2]/50 transition-colors">
+                          <td className="py-3 px-4 font-medium whitespace-nowrap">{formatMes(comissao.mes)}</td>
+                          <td className="py-3 px-4 font-mono font-medium whitespace-nowrap">{formatBRL(comissao.valor)}</td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                              comissao.status === 'Paga'
+                                ? 'text-[#5B6E58] bg-[#EEF3ED]'
+                                : comissao.status === 'Aguardando nota fiscal'
+                                ? 'text-amber-800 bg-amber-50 border border-amber-200'
+                                : 'text-[#7A7169] bg-[#FAF7F2] border border-[#E8DFD4]'
+                            }`}>
+                              {comissao.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
 
