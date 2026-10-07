@@ -167,6 +167,8 @@ export async function validarCodigoSmsFirebase(
 
   try {
     const cred = await currentConfirmationResult.confirm(codigo);
+    // Código usado: a próxima validação (ex.: troca da chave PIX) precisa de um SMS novo
+    currentConfirmationResult = null;
     return {
       success: true,
       user: cred.user

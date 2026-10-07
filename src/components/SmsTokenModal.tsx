@@ -11,6 +11,8 @@ interface SmsTokenModalProps {
   nome: string;
   onVerified: () => void;
   onCancel: () => void;
+  /** Texto do botão de confirmação (o padrão é o da inscrição) */
+  textoConfirmar?: string;
 }
 
 export const SmsTokenModal: React.FC<SmsTokenModalProps> = ({
@@ -18,6 +20,7 @@ export const SmsTokenModal: React.FC<SmsTokenModalProps> = ({
   nome,
   onVerified,
   onCancel,
+  textoConfirmar = 'Validar Token e Concluir Inscrição',
 }) => {
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [errorMessage, setErrorMessage] = useState('');
@@ -247,7 +250,7 @@ export const SmsTokenModal: React.FC<SmsTokenModalProps> = ({
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Validar Token e Concluir Inscrição</span>
+                  <span>{textoConfirmar}</span>
                 </>
               )}
             </button>

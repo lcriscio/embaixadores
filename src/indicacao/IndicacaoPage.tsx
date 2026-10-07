@@ -254,18 +254,12 @@ export const IndicacaoPage: React.FC = () => {
     <div className="min-h-screen overflow-x-hidden">
       {/* Topo */}
       <header className="border-b border-linho/70 bg-creme/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center px-4 py-4 sm:px-6">
           <div className="flex items-center gap-2">
             <Chama className="h-7 w-5" />
             <span className="font-serif text-2xl font-semibold tracking-tight">Can Candles</span>
             <span className="hidden text-xs uppercase tracking-[0.2em] text-cinza sm:inline">&amp; Wellness</span>
           </div>
-          <button
-            onClick={irParaFormulario}
-            className="rounded-full border border-tinta/15 px-4 py-2 text-sm font-medium text-tinta transition hover:border-terracota hover:text-terracota"
-          >
-            Falar com a Can
-          </button>
         </div>
       </header>
 

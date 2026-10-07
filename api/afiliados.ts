@@ -1,8 +1,11 @@
 /**
- * Vercel Function: POST /api/afiliados
+ * Vercel Function: /api/afiliados
  *
- * Cria o registro do embaixador na tabela "Afiliados" do Airtable SOMENTE depois que
+ * POST — cria o registro do embaixador na tabela "Afiliados" do Airtable SOMENTE depois que
  * o telefone foi validado por SMS no Firebase Phone Auth.
+ *
+ * PATCH — altera a chave PIX do embaixador logado. Exige um SMS confirmado há poucos minutos
+ * no WhatsApp cadastrado, para garantir que é a própria pessoa trocando a chave.
  *
  * - O navegador envia o ID Token do Firebase (Authorization: Bearer <token>).
  * - O token é verificado aqui (assinatura Google, projeto, validade) e precisa conter
@@ -46,6 +49,11 @@ const TIPO_PIX: Record<string, string> = {
   ALEATORIA: 'Aleatória',
 };
 
+// Tipos aceitos na troca da chave PIX (PATCH)
+const TIPOS_PIX_ALTERAVEIS = new Set(['EMAIL', 'CNPJ', 'CPF', 'TELEFONE']);
+// A troca da chave PIX só vale com um SMS confirmado há no máximo este tempo
+const SMS_RECENTE_SEGUNDOS = 10 * 60;
+
 const UFS = new Set([
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
   'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
@@ -59,6 +67,7 @@ interface FirebaseClaims {
   iat: number;
   auth_time: number;
   phone_number?: string;
+  firebase?: { sign_in_provider?: string };
 }
 
 function json(status: number, body: unknown): Response {
@@ -177,12 +186,12 @@ async function gerarCodigoUnico(): Promise<string> {
   throw new Error('Não foi possível gerar um código de embaixador único.');
 }
 
-export async function POST(request: Request): Promise<Response> {
+/** Exige usuário Firebase com telefone validado por SMS; devolve os claims ou a resposta de erro. */
+async function autenticar(request: Request): Promise<FirebaseClaims | Response> {
   if (!process.env.AIRTABLE_PAT) {
     return json(500, { success: false, error: 'AIRTABLE_PAT não configurado na Vercel.' });
   }
 
-  // 1. Autenticação: exige usuário Firebase com telefone validado por SMS
   const auth = request.headers.get('authorization') || '';
   const idToken = auth.startsWith('Bearer ') ? auth.slice(7) : '';
   if (!idToken) return json(401, { success: false, error: 'Sessão ausente. Valide o SMS novamente.' });
@@ -196,8 +205,84 @@ export async function POST(request: Request): Promise<Response> {
   if (!claims.phone_number) {
     return json(403, { success: false, error: 'Telefone não validado por SMS.' });
   }
+  return claims;
+}
 
-  const telefoneValidado = digitosNacionais(claims.phone_number);
+function chavePixValida(tipo: string, chave: string): boolean {
+  const digitos = chave.replace(/\D/g, '');
+  switch (tipo) {
+    case 'CPF':
+      return digitos.length === 11;
+    case 'CNPJ':
+      return digitos.length === 14;
+    case 'EMAIL':
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(chave);
+    case 'TELEFONE':
+      return /^[1-9]{2}\d{8,9}$/.test(digitosNacionais(chave));
+    default:
+      return false;
+  }
+}
+
+export async function PATCH(request: Request): Promise<Response> {
+  const claims = await autenticar(request);
+  if (claims instanceof Response) return claims;
+
+  // A sessão precisa vir de um código de SMS confirmado agora: login por e-mail e senha, ou um
+  // SMS de dias atrás, não bastam
+  const smsRecente =
+    claims.firebase?.sign_in_provider === 'phone' &&
+    Math.floor(Date.now() / 1000) - claims.auth_time <= SMS_RECENTE_SEGUNDOS;
+  if (!smsRecente) {
+    return json(403, {
+      success: false,
+      error: 'Para alterar a chave PIX, confirme o código que enviamos por SMS para o seu WhatsApp.',
+    });
+  }
+
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return json(400, { success: false, error: 'JSON inválido.' });
+  }
+  const tipo = texto(body.tipoChavePix, 20).toUpperCase();
+  const chavePix = texto(body.chavePix, 140);
+  if (!TIPOS_PIX_ALTERAVEIS.has(tipo)) {
+    return json(400, { success: false, error: 'Escolha o tipo da chave PIX: E-mail, CNPJ, CPF ou Telefone.' });
+  }
+  if (!chavePixValida(tipo, chavePix)) {
+    return json(400, { success: false, error: 'A chave PIX não confere com o tipo escolhido.' });
+  }
+
+  try {
+    const telefone = formatarWhatsApp(digitosNacionais(claims.phone_number!));
+    const formula = `{Telefone do Afiliado (WhatsApp)}='${airtableString(telefone)}'`;
+    const existentes = await airtable(
+      `?maxRecords=1&fields%5B%5D=${F.telefone}&filterByFormula=${encodeURIComponent(formula)}`,
+    );
+    const afiliado = existentes.records?.[0];
+    if (!afiliado) {
+      return json(404, { success: false, error: 'Embaixador não encontrado na base da Can Candles.' });
+    }
+
+    await airtable(`/${afiliado.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ fields: { [F.tipoPix]: TIPO_PIX[tipo], [F.chavePix]: chavePix } }),
+    });
+    return json(200, { success: true, tipoChavePix: tipo, chavePix });
+  } catch (e: any) {
+    console.error('Erro Airtable /api/afiliados (chave PIX):', e);
+    return json(502, { success: false, error: 'Não conseguimos alterar sua chave PIX agora. Tente novamente em instantes.' });
+  }
+}
+
+export async function POST(request: Request): Promise<Response> {
+  // 1. Autenticação: exige usuário Firebase com telefone validado por SMS
+  const claims = await autenticar(request);
+  if (claims instanceof Response) return claims;
+
+  const telefoneValidado = digitosNacionais(claims.phone_number!);
   const telefoneFormatado = formatarWhatsApp(telefoneValidado);
 
   // 2. Embaixador já cadastrado com este WhatsApp (validado por SMS)? Devolve exatamente o
