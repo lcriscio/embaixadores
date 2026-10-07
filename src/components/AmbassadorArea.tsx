@@ -30,7 +30,7 @@ import {
   Award
 } from 'lucide-react';
 import { linkIndicacao } from '../utils/linkIndicacao';
-import { buscarPainelEmbaixador, PainelDados } from '../services/painelService';
+import { buscarPainelEmbaixador, enviarNotaFiscal, EXTENSOES_NOTA_FISCAL, PainelDados } from '../services/painelService';
 import { useEstadoDaSessao } from '../utils/useEstadoDaSessao';
 
 type AbaEmbaixador = 'treinamento' | 'calculadora_historico' | 'leads' | 'materiais' | 'perfil_nf';
@@ -107,6 +107,26 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
   useEffect(() => {
     carregarPainel();
   }, [carregarPainel, afiliado.id]);
+
+  // Envio da nota fiscal da comissão, por mês (AAAA-MM)
+  const [notaEnviando, setNotaEnviando] = useState<string | null>(null);
+  const [notaArrastando, setNotaArrastando] = useState<string | null>(null);
+  const [notaErro, setNotaErro] = useState<{ mes: string; mensagem: string } | null>(null);
+
+  const handleEnviarNotaFiscal = async (mes: string, arquivo: File | undefined) => {
+    setNotaArrastando(null);
+    if (!arquivo || notaEnviando) return;
+    setNotaErro(null);
+    setNotaEnviando(mes);
+    try {
+      await enviarNotaFiscal(mes, arquivo);
+      await carregarPainel();
+    } catch (err: any) {
+      setNotaErro({ mes, mensagem: err?.message || 'Não conseguimos enviar sua nota fiscal agora.' });
+    } finally {
+      setNotaEnviando(null);
+    }
+  };
 
   const totalContatosIndicados = painel?.metricas.totalContatosIndicados ?? 0;
   const contatosOrcaram = painel?.metricas.contatosOrcaram ?? 0;
@@ -1133,18 +1153,19 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                       <th className="py-3 px-4">Mês</th>
                       <th className="py-3 px-4">Comissão a receber</th>
                       <th className="py-3 px-4">Status da comissão</th>
+                      <th className="py-3 px-4">Nota Fiscal</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F0E7DD]">
                     {painelCarregando && !painel ? (
                       <tr>
-                        <td colSpan={3} className="py-8 text-center text-xs text-[#7A7169]">
+                        <td colSpan={4} className="py-8 text-center text-xs text-[#7A7169]">
                           Carregando suas comissões…
                         </td>
                       </tr>
                     ) : painelErro && !painel ? (
                       <tr>
-                        <td colSpan={3} className="py-8 text-center text-xs text-red-700">
+                        <td colSpan={4} className="py-8 text-center text-xs text-red-700">
                           {painelErro}{' '}
                           <button type="button" onClick={carregarPainel} className="underline font-semibold cursor-pointer">
                             Tentar novamente
@@ -1153,25 +1174,80 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                       </tr>
                     ) : comissoesCrm.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="py-8 text-center text-xs text-[#7A7169]">
+                        <td colSpan={4} className="py-8 text-center text-xs text-[#7A7169]">
                           Nenhuma comissão a receber ainda. Ela aparece aqui quando um pedido dos seus contatos indicados é 100% pago.
                         </td>
                       </tr>
                     ) : (
                       comissoesCrm.map((comissao) => (
-                        <tr key={comissao.mes} className="hover:bg-[#FAF7F2]/50 transition-colors">
+                        <tr key={comissao.mes} className="hover:bg-[#FAF7F2]/50 transition-colors align-top">
                           <td className="py-3 px-4 font-medium whitespace-nowrap">{formatMes(comissao.mes)}</td>
                           <td className="py-3 px-4 font-mono font-medium whitespace-nowrap">{formatBRL(comissao.valor)}</td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                               comissao.status === 'Paga'
                                 ? 'text-[#5B6E58] bg-[#EEF3ED]'
+                                : comissao.status === 'Nota fiscal incluída'
+                                ? 'text-[#8F4824] bg-[#FFF9F5] border border-[#F0D5C7]'
                                 : comissao.status === 'Aguardando nota fiscal'
                                 ? 'text-amber-800 bg-amber-50 border border-amber-200'
                                 : 'text-[#7A7169] bg-[#FAF7F2] border border-[#E8DFD4]'
                             }`}>
                               {comissao.status}
                             </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {comissao.notaFiscal ? (
+                              <span className="flex items-center gap-1.5 text-[11px] text-[#5B6E58]">
+                                <FileCheck className="w-3.5 h-3.5 shrink-0" />
+                                <span className="break-all">{comissao.notaFiscal}</span>
+                              </span>
+                            ) : comissao.status === 'Aguardando nota fiscal' ? (
+                              <div className="min-w-[220px] max-w-xs">
+                                <label
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    setNotaArrastando(comissao.mes);
+                                  }}
+                                  onDragLeave={() => setNotaArrastando(null)}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    handleEnviarNotaFiscal(comissao.mes, e.dataTransfer.files[0]);
+                                  }}
+                                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed text-[11px] transition-colors ${
+                                    notaEnviando
+                                      ? 'border-[#E8DFD4] text-[#7A7169] cursor-wait'
+                                      : notaArrastando === comissao.mes
+                                      ? 'border-[#B86B43] bg-[#FFF9F5] text-[#8F4824] cursor-copy'
+                                      : 'border-[#D9CCBD] text-[#7A7169] hover:border-[#B86B43] hover:text-[#8F4824] cursor-pointer'
+                                  }`}
+                                >
+                                  <UploadCloud className="w-4 h-4 shrink-0" />
+                                  <span>
+                                    {notaEnviando === comissao.mes
+                                      ? 'Enviando nota fiscal…'
+                                      : 'Arraste a nota fiscal aqui ou clique para escolher (PDF, XML ou imagem, até 3 MB)'}
+                                  </span>
+                                  <input
+                                    type="file"
+                                    accept={EXTENSOES_NOTA_FISCAL.map((ext) => `.${ext}`).join(',')}
+                                    disabled={Boolean(notaEnviando)}
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      handleEnviarNotaFiscal(comissao.mes, e.target.files?.[0]);
+                                      e.target.value = '';
+                                    }}
+                                  />
+                                </label>
+                                {notaErro?.mes === comissao.mes && (
+                                  <p className="mt-1.5 text-[11px] text-red-700">{notaErro.mensagem}</p>
+                                )}
+                              </div>
+                            ) : comissao.status === 'A ser apurado' ? (
+                              <span className="text-[11px] text-[#7A7169]">Disponível quando o mês fechar</span>
+                            ) : (
+                              '—'
+                            )}
                           </td>
                         </tr>
                       ))
