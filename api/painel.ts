@@ -2,6 +2,7 @@
  * Vercel Function: /api/painel
  *
  * GET — dados do painel do embaixador logado, lidos do CRM (Airtable):
+ * - Perfil: tipo e chave PIX cadastrados (tabela Afiliados)
  * - Contatos indicados: "[ Autocomplete ] Contatos associados a esse Afiliado" (tabela Afiliados)
  * - Pedidos: registros de Pedidos cujo "[ Autocomplete ] Existe Afiliado associado a esse pedido?"
  *   aponta para este afiliado
@@ -32,6 +33,8 @@ const CONTAS_A_PAGAR_TABLE_ID = 'tblwkxoaSBeKExkjV';
 const A = {
   idAfiliado: 'fldCZ2C6nnlplLLFs', // ID do Afiliado
   nome: 'fldwx4v1sIO8fvFSn', // Nome do Afiliado
+  tipoPix: 'fldfXbknCz3SXIdnF', // Tipo de PIX
+  chavePix: 'fldToa7m0bhXtOBxA', // Chave PIX
   telefone: 'fldu1EBgRXdrMFuxa', // Telefone do Afiliado (WhatsApp)
   contatos: 'fldbgrdWTQ0HsxFyN', // [ Autocomplete ] Contatos associados a esse Afiliado
 };
@@ -66,6 +69,15 @@ const CP = {
 // O painel reconhece as linhas de comissão por esta referência gravada em "Notas relevantes".
 const REFERENCIA_COMISSAO = /\[comissao-afiliado:(\d+):(\d{4}-\d{2})\]/;
 const referenciaComissao = (idAfiliado: string, mes: string) => `[comissao-afiliado:${idAfiliado}:${mes}]`;
+
+// Opção do single select "Tipo de PIX" -> valor usado nos formulários do site
+const TIPO_PIX_FORMULARIO: Record<string, string> = {
+  'E-mail': 'EMAIL',
+  CNPJ: 'CNPJ',
+  CPF: 'CPF',
+  Telefone: 'TELEFONE',
+  Aleatória: 'ALEATORIA',
+};
 
 const A_DEFINIR = 'A definir';
 const VALOR_CHEIO = 'Valor cheio';
@@ -244,7 +256,7 @@ async function montarPainel(phoneNumber: string) {
   const afiliados = await listar(
     AFILIADOS_TABLE_ID,
     `{Telefone do Afiliado (WhatsApp)}='${airtableString(telefone)}'`,
-    [A.idAfiliado, A.nome, A.contatos],
+    [A.idAfiliado, A.nome, A.tipoPix, A.chavePix, A.contatos],
   );
   const afiliado = afiliados[0];
   if (!afiliado) return null;
@@ -373,6 +385,10 @@ async function montarPainel(phoneNumber: string) {
 
   return {
     afiliado: { idAfiliado, nome: String(afiliado.fields[A.nome] || '') },
+    perfil: {
+      tipoChavePix: TIPO_PIX_FORMULARIO[nomeOpcao(afiliado.fields[A.tipoPix])] || '',
+      chavePix: String(afiliado.fields[A.chavePix] || ''),
+    },
     metricas: {
       totalContatosIndicados,
       contatosOrcaram,
@@ -405,7 +421,13 @@ export async function GET(request: Request): Promise<Response> {
     if (!painel) {
       return json(404, { success: false, error: 'Embaixador não encontrado na base da Can Candles.' });
     }
-    return json(200, { success: true, metricas: painel.metricas, pedidos: painel.pedidos, comissoes: painel.comissoes });
+    return json(200, {
+      success: true,
+      perfil: painel.perfil,
+      metricas: painel.metricas,
+      pedidos: painel.pedidos,
+      comissoes: painel.comissoes,
+    });
   } catch (e: any) {
     console.error('Erro Airtable /api/painel:', e);
     return json(502, { success: false, error: 'Não conseguimos carregar seus dados agora. Tente novamente em instantes.' });

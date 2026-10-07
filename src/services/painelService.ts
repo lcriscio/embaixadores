@@ -37,7 +37,16 @@ export interface PainelComissaoMensal {
 export const EXTENSOES_NOTA_FISCAL = ['pdf', 'xml', 'png', 'jpg', 'jpeg'];
 const TAMANHO_MAXIMO_NOTA_FISCAL = 3 * 1024 * 1024;
 
+export type TipoChavePix = 'EMAIL' | 'CNPJ' | 'CPF' | 'TELEFONE';
+
+export interface PainelPerfil {
+  /** '' quando não cadastrado; 'ALEATORIA' só existe em cadastros antigos */
+  tipoChavePix: TipoChavePix | 'ALEATORIA' | '';
+  chavePix: string;
+}
+
 export interface PainelDados {
+  perfil: PainelPerfil;
   metricas: PainelMetricas;
   pedidos: PainelPedido[];
   comissoes: PainelComissaoMensal[];
@@ -59,7 +68,12 @@ export async function buscarPainelEmbaixador(): Promise<PainelDados> {
   if (!res.ok || !data.success) {
     throw new Error(data.error || `Erro HTTP ${res.status}`);
   }
-  return { metricas: data.metricas, pedidos: data.pedidos, comissoes: data.comissoes ?? [] };
+  return {
+    perfil: data.perfil ?? { tipoChavePix: '', chavePix: '' },
+    metricas: data.metricas,
+    pedidos: data.pedidos,
+    comissoes: data.comissoes ?? [],
+  };
 }
 
 function lerComoBase64(arquivo: File): Promise<string> {
@@ -94,6 +108,41 @@ export async function enviarNotaFiscal(mes: string, arquivo: File): Promise<void
     method: 'POST',
     headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ mes, nomeArquivo: arquivo.name, arquivoBase64 }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || `Erro HTTP ${res.status}`);
+  }
+}
+
+/** Confere se a chave tem o formato do tipo escolhido (mesma regra do servidor). */
+export function chavePixValida(tipo: TipoChavePix, chave: string): boolean {
+  const digitos = chave.replace(/\D/g, '');
+  switch (tipo) {
+    case 'CPF':
+      return digitos.length === 11;
+    case 'CNPJ':
+      return digitos.length === 14;
+    case 'EMAIL':
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(chave.trim());
+    case 'TELEFONE':
+      return /^[1-9]{2}\d{8,9}$/.test(digitos.startsWith('55') && digitos.length >= 12 ? digitos.slice(2) : digitos);
+  }
+}
+
+/**
+ * Grava a nova chave PIX no CRM. O servidor só aceita logo depois de um SMS confirmado no
+ * WhatsApp cadastrado.
+ */
+export async function alterarChavePix(tipoChavePix: TipoChavePix, chavePix: string): Promise<void> {
+  if (!auth.currentUser) {
+    throw new Error('Entre na sua conta para alterar a chave PIX.');
+  }
+  const idToken = await auth.currentUser.getIdToken();
+  const res = await fetch('/api/afiliados', {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tipoChavePix, chavePix }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.success) {

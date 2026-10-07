@@ -29,11 +29,29 @@ import {
   Award
 } from 'lucide-react';
 import { linkIndicacao } from '../utils/linkIndicacao';
-import { buscarPainelEmbaixador, enviarNotaFiscal, EXTENSOES_NOTA_FISCAL, PainelDados } from '../services/painelService';
+import {
+  alterarChavePix,
+  buscarPainelEmbaixador,
+  chavePixValida,
+  enviarNotaFiscal,
+  EXTENSOES_NOTA_FISCAL,
+  PainelDados,
+  TipoChavePix,
+} from '../services/painelService';
+import { auth } from '../services/firebase';
+import { SmsTokenModal } from './SmsTokenModal';
 import { useEstadoDaSessao } from '../utils/useEstadoDaSessao';
 
 type AbaEmbaixador = 'treinamento' | 'calculadora_historico' | 'leads' | 'materiais' | 'perfil_nf';
 const ABAS_EMBAIXADOR: unknown[] = ['treinamento', 'calculadora_historico', 'leads', 'materiais', 'perfil_nf'];
+const TIPOS_CHAVE_PIX: { valor: TipoChavePix; rotulo: string; exemplo: string }[] = [
+  { valor: 'EMAIL', rotulo: 'E-mail', exemplo: 'nome@exemplo.com.br' },
+  { valor: 'CNPJ', rotulo: 'CNPJ', exemplo: '00.000.000/0000-00' },
+  { valor: 'CPF', rotulo: 'CPF', exemplo: '000.000.000-00' },
+  { valor: 'TELEFONE', rotulo: 'Telefone', exemplo: '(11) 99999-9999' },
+];
+const ROTULO_TIPO_PIX: Record<string, string> = { EMAIL: 'E-mail', CNPJ: 'CNPJ', CPF: 'CPF', TELEFONE: 'Telefone', ALEATORIA: 'Aleatória' };
+
 const sessaoValida = (v: unknown) => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 5;
 
 interface AmbassadorAreaProps {
@@ -67,7 +85,6 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
   // Edit Profile form state
   const [editNome, setEditNome] = useState(afiliado.nome);
   const [editTelefone, setEditTelefone] = useState(afiliado.telefone);
-  const [editChavePix, setEditChavePix] = useState(afiliado.chavePix);
   const [editCidade, setEditCidade] = useState(afiliado.cidade);
   const [editEstado, setEditEstado] = useState(afiliado.estado);
   const [editInstagram, setEditInstagram] = useState(afiliado.instagram || '');
@@ -115,6 +132,53 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
       setNotaErro({ mes, mensagem: err?.message || 'Não conseguimos enviar sua nota fiscal agora.' });
     } finally {
       setNotaEnviando(null);
+    }
+  };
+
+  // Chave PIX: o valor oficial é o do CRM; o do navegador só aparece enquanto o painel carrega
+  const pixAtual = painel?.perfil.chavePix
+    ? painel.perfil
+    : { tipoChavePix: afiliado.tipoChavePix, chavePix: afiliado.chavePix };
+  const [pixTipo, setPixTipo] = useState<TipoChavePix>('CPF');
+  const [pixChave, setPixChave] = useState('');
+  const [pixConfirmandoSms, setPixConfirmandoSms] = useState(false);
+  const [pixSalvando, setPixSalvando] = useState(false);
+  const [pixErro, setPixErro] = useState('');
+  const [pixAlterada, setPixAlterada] = useState(false);
+  // WhatsApp cadastrado (validado por SMS no login): é para ele que vai o novo código
+  const telefoneCadastrado = auth.currentUser?.phoneNumber || '';
+
+  const handleSolicitarTrocaPix = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPixAlterada(false);
+    if (!chavePixValida(pixTipo, pixChave)) {
+      setPixErro('A chave PIX não confere com o tipo escolhido.');
+      return;
+    }
+    if (!telefoneCadastrado) {
+      setPixErro('Entre com o seu WhatsApp cadastrado para alterar a chave PIX.');
+      return;
+    }
+    setPixErro('');
+    setPixConfirmandoSms(true);
+  };
+
+  // Chamado depois que o código do SMS foi confirmado
+  const handleTrocarPix = async () => {
+    setPixConfirmandoSms(false);
+    setPixSalvando(true);
+    try {
+      const chave = pixChave.trim();
+      await alterarChavePix(pixTipo, chave);
+      saveAfiliados(getAfiliados().map((a) => (a.id === afiliado.id ? { ...a, tipoChavePix: pixTipo, chavePix: chave } : a)));
+      onAfiliadoUpdated({ ...afiliado, tipoChavePix: pixTipo, chavePix: chave });
+      setPixChave('');
+      setPixAlterada(true);
+      await carregarPainel();
+    } catch (err: any) {
+      setPixErro(err?.message || 'Não conseguimos alterar sua chave PIX agora.');
+    } finally {
+      setPixSalvando(false);
     }
   };
 
@@ -218,7 +282,6 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
           ...a,
           nome: editNome,
           telefone: editTelefone,
-          chavePix: editChavePix,
           cidade: editCidade,
           estado: editEstado,
           instagram: editInstagram,
@@ -232,7 +295,6 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
       ...afiliado,
       nome: editNome,
       telefone: editTelefone,
-      chavePix: editChavePix,
       cidade: editCidade,
       estado: editEstado,
       instagram: editInstagram,
@@ -1436,7 +1498,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                 Editar Informações Cadastrais
               </h3>
               <p className="text-xs text-[#7A7169] mb-4">
-                Mantenha seu telefone, chave PIX e endereço atualizados para recebimentos pontuais.
+                Mantenha seu telefone e endereço atualizados.
               </p>
 
               {profileSaved && (
@@ -1480,16 +1542,6 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-[#2C2724] block mb-1">Chave PIX de Recebimento</label>
-                    <input
-                      type="text"
-                      value={editChavePix}
-                      onChange={(e) => setEditChavePix(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-[#D9CFC4] bg-white"
-                    />
-                  </div>
-
-                  <div>
                     <label className="text-xs font-medium text-[#2C2724] block mb-1">Cidade</label>
                     <input
                       type="text"
@@ -1522,10 +1574,92 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
               </form>
             </div>
 
+            {/* Chave PIX: a troca exige um novo SMS no WhatsApp cadastrado */}
+            <div className="pt-6 border-t border-[#F0E7DD]">
+              <h3 className="font-serif text-lg font-bold text-[#2C2724] mb-1">
+                Chave PIX
+              </h3>
+              <p className="text-xs text-[#7A7169] mb-4">
+                É nesta chave que você recebe suas comissões. Para alterar, enviamos um código por SMS para o seu WhatsApp cadastrado.
+              </p>
+
+              <div className="mb-4 p-3.5 rounded-xl bg-[#FAF7F2] border border-[#E8DFD4] text-xs">
+                <span className="text-[10px] text-[#7A7169] uppercase font-semibold block">Chave PIX atual</span>
+                {pixAtual.chavePix ? (
+                  <span className="mt-1 block text-[#2C2724]">
+                    {ROTULO_TIPO_PIX[pixAtual.tipoChavePix] || 'Tipo não informado'} · <span className="font-mono break-all">{pixAtual.chavePix}</span>
+                  </span>
+                ) : (
+                  <span className="mt-1 block text-[#7A7169]">Nenhuma chave PIX cadastrada.</span>
+                )}
+              </div>
+
+              {pixAlterada && (
+                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Chave PIX alterada com sucesso!</span>
+                </div>
+              )}
+              {pixErro && (
+                <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{pixErro}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSolicitarTrocaPix} className="bg-[#FAF7F2] p-5 rounded-2xl border border-[#E8DFD4] space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-[#2C2724] block mb-1">Tipo da nova chave</label>
+                    <select
+                      value={pixTipo}
+                      onChange={(e) => setPixTipo(e.target.value as TipoChavePix)}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-[#D9CFC4] bg-white"
+                    >
+                      {TIPOS_CHAVE_PIX.map((tipo) => (
+                        <option key={tipo.valor} value={tipo.valor}>{tipo.rotulo}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-[#2C2724] block mb-1">Nova chave PIX</label>
+                    <input
+                      type="text"
+                      value={pixChave}
+                      onChange={(e) => setPixChave(e.target.value)}
+                      placeholder={TIPOS_CHAVE_PIX.find((tipo) => tipo.valor === pixTipo)?.exemplo}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-[#D9CFC4] bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={!pixChave.trim() || pixSalvando}
+                    className="px-5 py-2 bg-[#2C2724] hover:bg-[#3D3733] text-white text-xs font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {pixSalvando ? 'Alterando…' : 'Alterar chave PIX'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
           </div>
         )}
 
       </div>
+
+      {pixConfirmandoSms && (
+        <SmsTokenModal
+          telefone={telefoneCadastrado}
+          nome={afiliado.nome}
+          onVerified={handleTrocarPix}
+          onCancel={() => setPixConfirmandoSms(false)}
+          textoConfirmar="Validar código e alterar chave PIX"
+        />
+      )}
 
       {/* Mandatory Terms Modal if not accepted */}
       <TermsModal
