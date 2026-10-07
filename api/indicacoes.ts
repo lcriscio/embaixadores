@@ -9,6 +9,8 @@
  *   alterado e o embaixador NÃO recebe a atribuição (resposta { status: 'existente' }).
  * - Contato novo: Canal de entrada e Origem detalhada = "Formulário de Afiliado" e o campo
  *   "[ Autocomplete ] Afiliado associado a esse Contato" aponta para o afiliado do link.
+ * - Contato novo também é avisado à Make (webhook em MAKE_WEBHOOK_INDICACAO), que envia a
+ *   mensagem de boas-vindas no WhatsApp. Sem a variável configurada, nada é enviado.
  */
 
 declare const process: { env: Record<string, string | undefined> };
@@ -66,6 +68,26 @@ function variacoes(nacional: string): string[] {
   if (numero.length === 9 && numero.startsWith('9')) lista.push(ddd + numero.slice(1));
   if (numero.length === 8 && /^[6-9]/.test(numero)) lista.push(`${ddd}9${numero}`);
   return lista;
+}
+
+/**
+ * Avisa a Make que um contato novo chegou pela página de indicação. O cadastro já está feito:
+ * se a Make estiver fora do ar ou demorar, a pessoa não pode receber erro por causa disso.
+ */
+async function avisarMake(dados: Record<string, unknown>): Promise<void> {
+  const url = process.env.MAKE_WEBHOOK_INDICACAO;
+  if (!url) return;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) console.error(`Make respondeu HTTP ${res.status} ao aviso de indicação.`);
+  } catch (e) {
+    console.error('Falha ao avisar a Make sobre a indicação:', e);
+  }
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -130,9 +152,16 @@ export async function POST(request: Request): Promise<Response> {
     };
     if (afiliadoId) fields[C.afiliado] = [afiliadoId];
 
-    await airtable(CONTATOS_TABLE_ID, '', {
+    const criado = await airtable(CONTATOS_TABLE_ID, '', {
       method: 'POST',
       body: JSON.stringify({ records: [{ fields }] }),
+    });
+    await avisarMake({
+      nome,
+      primeiroNome: nome.split(' ')[0],
+      whatsapp: `55${nacional}`,
+      codigoAfiliado: afiliadoId ? codigo : '',
+      contatoId: criado.records?.[0]?.id || '',
     });
     return json(201, { status: 'criado' });
   } catch (e: any) {
