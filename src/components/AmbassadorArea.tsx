@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Afiliado, LeadIndicacao, NotaFiscal } from '../types';
 import { CommissionCalculator } from './CommissionCalculator';
 import { TermsModal } from './TermsModal';
-import { submeterNotaFiscal, saveAfiliados, getAfiliados } from '../services/storageService';
+import { saveAfiliados, getAfiliados } from '../services/storageService';
 import { 
   Sparkles, 
   Flame, 
@@ -17,7 +17,6 @@ import {
   DollarSign, 
   Users, 
   CheckCircle2, 
-  Clock, 
   HelpCircle,
   FileCheck,
   Download,
@@ -42,7 +41,6 @@ interface AmbassadorAreaProps {
   leads: LeadIndicacao[];
   notasFiscais: NotaFiscal[];
   onAfiliadoUpdated: (afiliado: Afiliado) => void;
-  onRefreshData: () => void;
 }
 
 export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
@@ -50,7 +48,6 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
   leads,
   notasFiscais,
   onAfiliadoUpdated,
-  onRefreshData,
 }) => {
   // Navigation within the ambassador area
   // Aba e sessão do treinamento são lembradas ao recarregar a página
@@ -66,13 +63,6 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(!afiliado.termosAceitos);
-
-  // NF Upload form state
-  const [nfMesReferencia, setNfMesReferencia] = useState('08/2026');
-  const [nfNumero, setNfNumero] = useState('');
-  const [nfChave, setNfChave] = useState('');
-  const [nfArquivoNome, setNfArquivoNome] = useState('');
-  const [nfUploadSuccess, setNfUploadSuccess] = useState(false);
 
   // Edit Profile form state
   const [editNome, setEditNome] = useState(afiliado.nome);
@@ -217,29 +207,6 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
       termosAceitosEm: new Date().toISOString(),
       termosVersao: '1.0'
     });
-  };
-
-  const handleUploadNF = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nfNumero.trim() || !nfArquivoNome.trim()) return;
-
-    submeterNotaFiscal({
-      afiliadoId: afiliado.id,
-      afiliadoNome: afiliado.nome,
-      afiliadoDoc: afiliado.documento,
-      mesReferencia: nfMesReferencia,
-      valorNota: valorAPagarCanCandles > 0 ? valorAPagarCanCandles : 1530,
-      numeroNota: nfNumero,
-      chaveAcesso: nfChave,
-      nomeArquivo: nfArquivoNome,
-    });
-
-    setNfUploadSuccess(true);
-    setNfNumero('');
-    setNfChave('');
-    setNfArquivoNome('');
-    onRefreshData();
-    setTimeout(() => setNfUploadSuccess(false), 4000);
   };
 
   const handleSaveProfile = (e: React.FormEvent) => {
@@ -464,10 +431,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
             }`}
           >
             <FileText className="w-4 h-4" />
-            <span>Meu Perfil & Envio de NF</span>
-            {valorAPagarCanCandles > 0 && (
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-            )}
+            <span>Meu Perfil</span>
           </button>
 
         </div>
@@ -905,7 +869,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                           <FileText className="w-5 h-5 text-[#B86B43] mb-2" />
                           <h4 className="font-semibold text-xs text-[#2C2724]">Upload da Nota Fiscal</h4>
                           <p className="text-xs text-[#665D56] mt-1">
-                            Até o dia 10 de cada mês, acesse a aba "Meu Perfil & Envio de NF" e anexe seu arquivo (PDF ou XML) da comissão calculada.
+                            Até o dia 10 de cada mês, acesse a aba "Meus resultados" e arraste o arquivo da nota fiscal (PDF, XML ou imagem) na linha do mês da comissão.
                           </p>
                         </div>
 
@@ -1452,270 +1416,22 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
           </div>
         )}
 
-        {/* Tab 5: Meu Perfil & Envio de NF */}
+        {/* Tab 5: Meu Perfil */}
         {activeTab === 'perfil_nf' && (
           <div className="bg-white rounded-b-2xl border-x border-b border-[#E8DFD4] p-6 sm:p-8 space-y-8">
             
             {/* Header */}
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-widest text-[#B86B43]">
-                Conformidade Fiscal & Dados Cadastrais
+                Dados Cadastrais
               </span>
               <h2 className="font-serif text-2xl font-bold text-[#2C2724] mt-0.5">
-                Meu Perfil & Envio de Nota Fiscal
+                Meu Perfil
               </h2>
-              <p className="text-xs text-[#7A7169]">
-                Envie sua Nota Fiscal de Serviços referente ao mês anterior até o dia 10 para liberação do pagamento via PIX.
-              </p>
-            </div>
-
-            {/* Highlight: Balance & NF Upload Module */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Left: Upload NF Box (Col 7) */}
-              <div className="lg:col-span-7 bg-[#FAF7F2] p-6 rounded-2xl border border-[#E8DFD4] space-y-4">
-                
-                <div className="flex items-center justify-between pb-3 border-b border-[#E8DFD4]">
-                  <div className="flex items-center gap-2">
-                    <UploadCloud className="w-5 h-5 text-[#B86B43]" />
-                    <h3 className="font-serif text-lg font-bold text-[#2C2724]">
-                      Submeter Nota Fiscal Mensal
-                    </h3>
-                  </div>
-                  <span className="text-[10px] text-[#5B6E58] bg-[#EEF3ED] px-2 py-0.5 rounded-full font-medium">
-                    Até dia 10 do mês
-                  </span>
-                </div>
-
-                {/* Important Rule Pill */}
-                <div className="p-3 bg-white rounded-xl border border-[#E8DFD4] text-xs text-[#524942] space-y-1">
-                  <p className="font-semibold text-[#2C2724] flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#5B6E58]" />
-                    Dados Obrigatórios na Nota Fiscal de Serviço (NFS-e):
-                  </p>
-                  <p>• <strong>Tomador / Destinatário:</strong> Can Candles & Wellness</p>
-                  <p>• <strong>CNPJ Can Candles:</strong> <span className="font-mono font-bold text-[#B86B43]">65.254.182/0001-72</span></p>
-                  <p>• <strong>Descrição / Atividade:</strong> Intermediação de negócios, agenciamento ou promoção de vendas.</p>
-                </div>
-
-                {nfUploadSuccess && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Nota Fiscal enviada com sucesso! Nossa equipe contábil irá conferir e autorizar o PIX.</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleUploadNF} className="space-y-4 pt-1">
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-medium text-[#2C2724] block mb-1">
-                        Mês de Referência das Vendas *
-                      </label>
-                      <select
-                        value={nfMesReferencia}
-                        onChange={(e) => setNfMesReferencia(e.target.value)}
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-[#D9CFC4] bg-white"
-                      >
-                        <option value="08/2026">Agosto / 2026</option>
-                        <option value="09/2026">Setembro / 2026</option>
-                        <option value="10/2026">Outubro / 2026</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-medium text-[#2C2724] block mb-1">
-                        Número da Nota Fiscal *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Ex: 000145"
-                        value={nfNumero}
-                        onChange={(e) => setNfNumero(e.target.value)}
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-[#D9CFC4] bg-white font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-[#2C2724] block mb-1">
-                      Valor da Nota Fiscal (Calculado conforme comissão) *
-                    </label>
-                    <div className="px-3 py-2 text-xs font-mono font-bold bg-white border border-[#D9CFC4] rounded-lg text-[#B86B43]">
-                      {formatBRL(valorAPagarCanCandles > 0 ? valorAPagarCanCandles : 1530)}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-[#2C2724] block mb-1">
-                      Chave de Acesso / Código de Verificação (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Código de verificação da NFS-e"
-                      value={nfChave}
-                      onChange={(e) => setNfChave(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-[#D9CFC4] bg-white font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-[#2C2724] block mb-1">
-                      Arquivo da Nota Fiscal (PDF ou XML) *
-                    </label>
-                    <input
-                      type="file"
-                      accept=".pdf,.xml"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) setNfArquivoNome(file.name);
-                      }}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-[#D9CFC4] bg-white file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#FAF7F2] file:text-[#B86B43]"
-                    />
-                    {nfArquivoNome && (
-                      <span className="text-[11px] text-[#5B6E58] block mt-1">
-                        Arquivo selecionado: {nfArquivoNome}
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={!nfNumero.trim() || !nfArquivoNome.trim()}
-                    className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-                      nfNumero.trim() && nfArquivoNome.trim()
-                        ? 'bg-[#B86B43] hover:bg-[#A35C36] text-white shadow-sm'
-                        : 'bg-[#E3D7C9] text-[#8C827A] cursor-not-allowed'
-                    }`}
-                  >
-                    <UploadCloud className="w-4 h-4" />
-                    <span>Enviar Nota Fiscal para Conferência</span>
-                  </button>
-
-                </form>
-
-              </div>
-
-              {/* Right: Balance & Instructions (Col 5) */}
-              <div className="lg:col-span-5 space-y-4">
-                
-                {/* Available for NF */}
-                <div className="bg-[#FAF7F2] p-5 rounded-2xl border border-[#E8DFD4]">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7169] block">
-                    Saldo Disponível para Emissão
-                  </span>
-                  <div className="font-serif text-3xl font-bold text-[#B86B43] mt-1">
-                    {formatBRL(valorAPagarCanCandles)}
-                  </div>
-                  <p className="text-xs text-[#665D56] mt-2">
-                    Referente às vendas que já foram quitadas 100% pelo cliente no período anterior.
-                  </p>
-                </div>
-
-                {/* Deadlines Reminder */}
-                <div className="bg-white p-5 rounded-2xl border border-[#E8DFD4] space-y-3">
-                  <h4 className="font-serif text-base font-semibold text-[#2C2724]">
-                    Prazos e Regras Fiscais
-                  </h4>
-                  <ul className="text-xs text-[#665D56] space-y-2">
-                    <li className="flex items-start gap-2">
-                      <Clock className="w-3.5 h-3.5 text-[#B86B43] shrink-0 mt-0.5" />
-                      <span><strong>Até o dia 10:</strong> prazo limite para receber no mês corrente.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Info className="w-3.5 h-3.5 text-[#7A7169] shrink-0 mt-0.5" />
-                      <span><strong>Não enviou até o dia 10?</strong> O saldo acumula para o mês seguinte.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
-                      <span><strong>Limite de 3 meses:</strong> se a nota não for emitida em até 3 meses, a Can Candles se reserva o direito de cancelar o comissionamento.</span>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Terms of use status */}
-                <div className="bg-white p-4 rounded-xl border border-[#E8DFD4] flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] text-[#7A7169] uppercase font-semibold block">Termos de Uso</span>
-                    <span className="text-xs text-[#5B6E58] font-medium flex items-center gap-1 mt-0.5">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Aceitos pelo usuário
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setShowTermsModal(true)}
-                    className="text-xs text-[#B86B43] hover:underline font-medium"
-                  >
-                    Ver Termos
-                  </button>
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* List of Sent NFs */}
-            <div className="pt-4 border-t border-[#F0E7DD]">
-              <h3 className="font-serif text-lg font-bold text-[#2C2724] mb-3">
-                Histórico de Notas Fiscais Enviadas
-              </h3>
-
-              <div className="overflow-x-auto rounded-xl border border-[#E8DFD4]">
-                <table className="w-full text-left text-xs text-[#2C2724]">
-                  <thead className="bg-[#FAF7F2] text-[11px] font-semibold text-[#7A7169] border-b border-[#E8DFD4] uppercase">
-                    <tr>
-                      <th className="py-3 px-4">Data Envio</th>
-                      <th className="py-3 px-4">Mês Ref.</th>
-                      <th className="py-3 px-4">Nº Nota</th>
-                      <th className="py-3 px-4">Arquivo</th>
-                      <th className="py-3 px-4">Valor</th>
-                      <th className="py-3 px-4">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F0E7DD]">
-                    {minhasNFs.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-6 text-center text-xs text-[#7A7169]">
-                          Nenhuma nota fiscal submetida ainda.
-                        </td>
-                      </tr>
-                    ) : (
-                      minhasNFs.map((nf) => (
-                        <tr key={nf.id} className="hover:bg-[#FAF7F2]/50">
-                          <td className="py-3 px-4 font-mono text-[11px]">{nf.dataEnvio}</td>
-                          <td className="py-3 px-4 font-medium">{nf.mesReferencia}</td>
-                          <td className="py-3 px-4 font-mono font-medium">{nf.numeroNota}</td>
-                          <td className="py-3 px-4 text-[#7A7169] flex items-center gap-1.5">
-                            <FileText className="w-3.5 h-3.5 text-[#B86B43]" />
-                            <span className="truncate max-w-xs">{nf.nomeArquivo}</span>
-                          </td>
-                          <td className="py-3 px-4 font-mono font-bold text-[#2C2724]">
-                            {formatBRL(nf.valorNota)}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                              nf.status === 'paga'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : nf.status === 'aprovada'
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                : nf.status === 'rejeitada'
-                                ? 'bg-red-50 text-red-700 border border-red-200'
-                                : 'bg-amber-50 text-amber-800 border border-amber-200'
-                            }`}>
-                              {nf.status === 'paga' ? 'Paga via PIX' : nf.status === 'aprovada' ? 'Aprovada para Pagamento' : nf.status === 'rejeitada' ? 'Recusada' : 'Em Análise Contábil'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
             </div>
 
             {/* Edit Profile Form */}
-            <div className="pt-6 border-t border-[#F0E7DD]">
+            <div>
               <h3 className="font-serif text-lg font-bold text-[#2C2724] mb-1">
                 Editar Informações Cadastrais
               </h3>
