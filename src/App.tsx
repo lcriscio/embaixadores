@@ -236,7 +236,6 @@ export default function App() {
                 leads={leads}
                 notasFiscais={notasFiscais}
                 onAfiliadoUpdated={() => loadData()}
-                onRefreshData={loadData}
               />
             )
           ) : (

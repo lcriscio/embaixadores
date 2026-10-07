@@ -9,7 +9,8 @@
  *   status vindo de Contas a Pagar quando a nota fiscal do mês já foi enviada
  *
  * POST — o embaixador envia a nota fiscal da comissão de um mês: cria a linha em Contas a Pagar
- * ("Comissão de Afiliado", "A fazer") e anexa o arquivo em "Nota Fiscal / RPS".
+ * ("Comissão de Afiliado", "A fazer"), anexa o arquivo em "Nota Fiscal / RPS" e grava em
+ * "Notas relevantes" a referência do afiliado e do mês.
  *
  * O embaixador é identificado pelo WhatsApp validado por SMS (claim phone_number do ID Token do
  * Firebase), então cada um só enxerga os próprios dados.
@@ -58,9 +59,13 @@ const CP = {
   categoria: 'fldGPrK29uQ5LYCzt', // Categoria do Pagamento a fazer
   status: 'flddFmzr7PB3w0Fa0', // Status do Pagamento
   notaFiscal: 'fldKvZBOytneJgK4C', // Nota Fiscal / RPS
-  afiliado: 'fldsyzLd2jnSehLFE', // Afiliado
-  mes: 'flddMXyRausTTaV8l', // Mês de referência da comissão (AAAA-MM)
+  notas: 'fldFMe1CPz7YCANde', // Notas relevantes
 };
+
+// Contas a Pagar serve a vários tipos de pagamento, então não tem campos de afiliado e mês.
+// O painel reconhece as linhas de comissão por esta referência gravada em "Notas relevantes".
+const REFERENCIA_COMISSAO = /\[comissao-afiliado:(\d+):(\d{4}-\d{2})\]/;
+const referenciaComissao = (idAfiliado: string, mes: string) => `[comissao-afiliado:${idAfiliado}:${mes}]`;
 
 const A_DEFINIR = 'A definir';
 const VALOR_CHEIO = 'Valor cheio';
@@ -279,14 +284,14 @@ async function montarPainel(phoneNumber: string) {
   const contasBrutas = idAfiliado
     ? await listar(
         CONTAS_A_PAGAR_TABLE_ID,
-        `AND({Categoria do Pagamento a fazer}='${CATEGORIA_COMISSAO_AFILIADO}', FIND(',${idAfiliado},', ',' & SUBSTITUTE(ARRAYJOIN({Afiliado}, ','), ', ', ',') & ','))`,
+        `AND({Categoria do Pagamento a fazer}='${CATEGORIA_COMISSAO_AFILIADO}', FIND('[comissao-afiliado:${idAfiliado}:', {Notas relevantes}))`,
         Object.values(CP),
       )
     : [];
   const contaPorMes = new Map<string, { paga: boolean; notaFiscal: string | null }>();
   for (const r of contasBrutas) {
-    const mes = String(r.fields[CP.mes] || '');
-    if (!mes || !((r.fields[CP.afiliado] || []) as string[]).includes(afiliado.id)) continue;
+    const [, idNaNota, mes] = REFERENCIA_COMISSAO.exec(String(r.fields[CP.notas] || '')) || [];
+    if (idNaNota !== idAfiliado) continue;
     const anterior = contaPorMes.get(mes);
     contaPorMes.set(mes, {
       paga: Boolean(anterior?.paga) || nomeOpcao(r.fields[CP.status]) === PAGAMENTO_EFETUADO,
@@ -367,7 +372,7 @@ async function montarPainel(phoneNumber: string) {
   const contatosOrcaram = contatosQueOrcaram.size;
 
   return {
-    afiliado: { recordId: afiliado.id as string, idAfiliado, nome: String(afiliado.fields[A.nome] || '') },
+    afiliado: { idAfiliado, nome: String(afiliado.fields[A.nome] || '') },
     metricas: {
       totalContatosIndicados,
       contatosOrcaram,
@@ -461,8 +466,9 @@ export async function POST(request: Request): Promise<Response> {
         [CP.fornecedor]: painel.afiliado.nome,
         [CP.categoria]: CATEGORIA_COMISSAO_AFILIADO,
         [CP.status]: PAGAMENTO_A_FAZER,
-        [CP.afiliado]: [painel.afiliado.recordId],
-        [CP.mes]: mes,
+        [CP.notas]:
+          `Comissão de afiliado referente a ${mes.slice(5)}/${mes.slice(0, 4)} — ${painel.afiliado.nome} (ID do Afiliado ${painel.afiliado.idAfiliado}).\n` +
+          `Referência do Painel do Embaixador (não apagar): ${referenciaComissao(painel.afiliado.idAfiliado, mes)}`,
       },
     });
 
