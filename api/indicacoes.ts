@@ -5,12 +5,14 @@
  * e cria o contato na tabela "Contatos" do Airtable.
  *
  * Regras:
- * - A chave do contato é o WhatsApp. Se o número já existir em Contatos, nada é criado nem
- *   alterado e o embaixador NÃO recebe a atribuição (resposta { status: 'existente' }).
+ * - A chave do contato é o WhatsApp. Se o número já existir em Contatos, nada é criado e o
+ *   embaixador NÃO recebe a atribuição (resposta { status: 'existente' }). Como a pessoa pediu
+ *   contato de novo, o "Último contato" do registro existente passa a ser agora.
  * - Contato novo: Canal de entrada e Origem detalhada = "Formulário de Afiliado" e o campo
  *   "[ Autocomplete ] Afiliado associado a esse Contato" aponta para o afiliado do link.
- * - Contato novo também é avisado à Make (webhook em MAKE_WEBHOOK_INDICACAO), que envia a
- *   mensagem de boas-vindas no WhatsApp. Sem a variável configurada, nada é enviado.
+ * - Os dois casos são avisados à Make (webhook em MAKE_WEBHOOK_INDICACAO) com `tipo` "novo" ou
+ *   "retorno"; é ela que envia a mensagem de WhatsApp de cada caso. Sem a variável configurada,
+ *   nada é enviado.
  */
 
 declare const process: { env: Record<string, string | undefined> };
@@ -26,6 +28,7 @@ const C = {
   canalEntrada: 'fldC1K4KVp3NVeB1K', // [ Autocomplete/Preencher ] Canal de entrada
   origemDetalhada: 'fldvByfQ5h108g3rR', // [ Autocomplete/Preencher ] Origem detalhada
   dataEntrada: 'fldWWNbN9BZdmjfFb', // [ Autocomplete/Preencher ] Data de entrada
+  ultimoContato: 'fldaGJGn1A5FqnCtl', // [ Autocomplete/Preencher ] Último contato
   afiliado: 'fldVVCWEEe3Ag4b13', // [ Autocomplete ] Afiliado associado a esse Contato
 };
 const ORIGEM = 'Formulário de Afiliado';
@@ -71,7 +74,7 @@ function variacoes(nacional: string): string[] {
 }
 
 /**
- * Avisa a Make que um contato novo chegou pela página de indicação. O cadastro já está feito:
+ * Avisa a Make que alguém preencheu a página de indicação. O registro no Airtable já está feito:
  * se a Make estiver fora do ar ou demorar, a pessoa não pode receber erro por causa disso.
  */
 async function avisarMake(dados: Record<string, unknown>): Promise<void> {
@@ -124,9 +127,25 @@ export async function POST(request: Request): Promise<Response> {
       .join(',');
     const existentes = await airtable(
       CONTATOS_TABLE_ID,
-      `?maxRecords=1&fields%5B%5D=${C.whatsapp}&filterByFormula=${encodeURIComponent(`OR(${condicoes})`)}`,
+      `?maxRecords=1&returnFieldsByFieldId=true&fields%5B%5D=${C.whatsapp}&filterByFormula=${encodeURIComponent(`OR(${condicoes})`)}`,
     );
-    if (existentes.records?.length) {
+    const existente = existentes.records?.[0];
+    if (existente) {
+      // Já estava na base, mas pediu contato de novo: registra o momento e avisa a Make
+      await airtable(CONTATOS_TABLE_ID, `/${existente.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ fields: { [C.ultimoContato]: new Date().toISOString() } }),
+      });
+      // Usa o número como está gravado no contato (é o que a WATI conhece), sem símbolos
+      const whatsappGravado = String(existente.fields?.[C.whatsapp] || '').replace(/\D/g, '');
+      await avisarMake({
+        tipo: 'retorno',
+        nome,
+        primeiroNome: nome.split(' ')[0],
+        whatsapp: whatsappGravado.length >= 12 ? whatsappGravado : `55${nacional}`,
+        codigoAfiliado: '',
+        contatoId: existente.id,
+      });
       return json(200, { status: 'existente' });
     }
 
@@ -157,6 +176,7 @@ export async function POST(request: Request): Promise<Response> {
       body: JSON.stringify({ records: [{ fields }] }),
     });
     await avisarMake({
+      tipo: 'novo',
       nome,
       primeiroNome: nome.split(' ')[0],
       whatsapp: `55${nacional}`,
