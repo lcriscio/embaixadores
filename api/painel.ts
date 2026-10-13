@@ -11,7 +11,8 @@
  *
  * POST — o embaixador envia a nota fiscal da comissão de um mês: cria a linha em Contas a Pagar
  * ("Comissão de Afiliado", "A fazer"), anexa o arquivo em "Nota Fiscal / RPS" e grava em
- * "Notas relevantes" a referência do afiliado e do mês.
+ * "Notas relevantes" a referência do afiliado e do mês. Grava também o Método de Pagamento (PIX) e a
+ * chave PIX cadastrada em "Meu Perfil" naquele momento.
  *
  * O embaixador é identificado pelo WhatsApp validado por SMS (claim phone_number do ID Token do
  * Firebase), então cada um só enxerga os próprios dados.
@@ -63,6 +64,9 @@ const CP = {
   status: 'flddFmzr7PB3w0Fa0', // Status do Pagamento
   notaFiscal: 'fldKvZBOytneJgK4C', // Nota Fiscal / RPS
   notas: 'fldFMe1CPz7YCANde', // Notas relevantes
+  metodoPagamento: 'fldYMUq2jK5lpvrpp', // Método de Pagamento
+  tipoChavePix: 'fldhwbtT2ZgEiCeAi', // Tipo de Chave PIX
+  chavePix: 'fldf0OhAwHKLIA6f0', // Chave PIX
 };
 
 // Contas a Pagar serve a vários tipos de pagamento, então não tem campos de afiliado e mês.
@@ -94,6 +98,15 @@ const COMISSAO_PAGA = 'Paga';
 const CATEGORIA_COMISSAO_AFILIADO = 'Comissão de Afiliado';
 const PAGAMENTO_A_FAZER = 'A fazer';
 const PAGAMENTO_EFETUADO = 'Pagamento efetuado';
+const METODO_PIX = 'PIX';
+// Valor do formulário (perfil) -> opção de "Tipo de Chave PIX". Chave aleatória (só em cadastros
+// antigos) não tem opção lá: o tipo fica vazio e a chave vai mesmo assim.
+const TIPO_CHAVE_PIX_CONTAS_A_PAGAR: Record<string, string> = {
+  CPF: 'CPF',
+  CNPJ: 'CNPJ',
+  EMAIL: 'Email',
+  TELEFONE: 'Telefone',
+};
 
 // Nota fiscal: extensão aceita -> tipo do arquivo. O limite cabe no corpo de uma Vercel Function
 // (4,5 MB, com o arquivo em base64) e no upload de anexo do Airtable (5 MB).
@@ -482,12 +495,19 @@ export async function POST(request: Request): Promise<Response> {
       return json(409, { success: false, error: motivo });
     }
 
+    // Chave PIX cadastrada em "Meu Perfil" no momento do envio da nota
+    const tipoChavePix = TIPO_CHAVE_PIX_CONTAS_A_PAGAR[painel.perfil.tipoChavePix];
+    const chavePix = painel.perfil.chavePix.trim();
+
     const tabela = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${CONTAS_A_PAGAR_TABLE_ID}`;
     const conta = await airtableEscrita(tabela, 'POST', {
       fields: {
         [CP.fornecedor]: painel.afiliado.nome,
         [CP.categoria]: CATEGORIA_COMISSAO_AFILIADO,
         [CP.status]: PAGAMENTO_A_FAZER,
+        [CP.metodoPagamento]: METODO_PIX,
+        ...(chavePix && tipoChavePix ? { [CP.tipoChavePix]: tipoChavePix } : {}),
+        ...(chavePix ? { [CP.chavePix]: chavePix } : {}),
         [CP.notas]:
           `Comissão de afiliado referente a ${mes.slice(5)}/${mes.slice(0, 4)} — ${painel.afiliado.nome} (ID do Afiliado ${painel.afiliado.idAfiliado}).\n` +
           `Referência do Painel do Embaixador (não apagar): ${referenciaComissao(painel.afiliado.idAfiliado, mes)}`,
