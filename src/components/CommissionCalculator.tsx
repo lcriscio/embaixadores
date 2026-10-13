@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Calculator, Sparkles, TrendingUp, Check, ArrowRight, Layers } from 'lucide-react';
+import { TAXA_COMISSAO_RESERVA } from '../services/comissaoService';
+import { formatPercentual } from '../utils/percentual';
 
 interface CalculatorProps {
   taxaComissaoPadrao?: number;
@@ -7,7 +9,7 @@ interface CalculatorProps {
 }
 
 export const CommissionCalculator: React.FC<CalculatorProps> = ({
-  taxaComissaoPadrao = 10,
+  taxaComissaoPadrao = TAXA_COMISSAO_RESERVA,
   compact = false,
 }) => {
   const [incluiIdentidade, setIncluiIdentidade] = useState(true);
@@ -78,7 +80,7 @@ export const CommissionCalculator: React.FC<CalculatorProps> = ({
             </h3>
           </div>
           <p className="text-xs text-[#7A7169] mt-1">
-            Comissão de <strong>{taxaComissaoPadrao}% cravada</strong> sobre o valor integral de cada projeto fechado.
+            Comissão de <strong>{formatPercentual(taxaComissaoPadrao)} cravada</strong> sobre o valor integral de cada projeto fechado.
           </p>
         </div>
 
@@ -281,7 +283,7 @@ export const CommissionCalculator: React.FC<CalculatorProps> = ({
                 </span>
               </div>
               <div className="flex justify-between text-[#7A7169]">
-                <span>Comissão por Venda ({taxaComissaoPadrao}%):</span>
+                <span>Comissão por Venda ({formatPercentual(taxaComissaoPadrao)}):</span>
                 <span className="font-mono text-[#B86B43] font-semibold">
                   {formatBRL(valorComissaoPorVenda)}
                 </span>

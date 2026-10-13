@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { TermsModal } from './TermsModal';
 import { isUserAdmin } from '../services/authService';
+import { TAXA_COMISSAO_RESERVA } from '../services/comissaoService';
 
 interface NavbarProps {
   currentView: 'landing' | 'afiliado' | 'admin' | 'lead-landing';
@@ -35,7 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   afiliados,
   currentAfiliado,
   onSelectAfiliado,
-  taxaComissaoPadrao = 10,
+  taxaComissaoPadrao = TAXA_COMISSAO_RESERVA,
   onOpenAuth,
   currentUser,
   onLogout,

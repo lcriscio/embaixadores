@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
 import { LeadLandingPage } from './components/LeadLandingPage';
@@ -18,6 +18,7 @@ import { User } from 'firebase/auth';
 import { Afiliado, LeadIndicacao, NotaFiscal, CampanhaConfig } from './types';
 import { UserCheck, ShieldCheck, LogIn, ArrowLeft } from 'lucide-react';
 import { useEstadoDaSessao } from './utils/useEstadoDaSessao';
+import { useTaxaComissao } from './utils/useTaxaComissao';
 
 type View = 'landing' | 'afiliado' | 'admin' | 'lead-landing';
 
@@ -31,7 +32,13 @@ export default function App() {
   const [afiliados, setAfiliados] = useState<Afiliado[]>([]);
   const [leads, setLeads] = useState<LeadIndicacao[]>([]);
   const [notasFiscais, setNotasFiscais] = useState<NotaFiscal[]>([]);
-  const [campanha, setCampanha] = useState<CampanhaConfig>(getCampanhaConfig());
+  const [campanhaSalva, setCampanha] = useState<CampanhaConfig>(getCampanhaConfig());
+  // O percentual de comissão em vigor vem do CRM (tabela Comissionamentos), não do navegador
+  const taxaComissao = useTaxaComissao();
+  const campanha = useMemo<CampanhaConfig>(
+    () => (taxaComissao === null ? campanhaSalva : { ...campanhaSalva, taxaComissaoPadrao: taxaComissao }),
+    [campanhaSalva, taxaComissao],
+  );
   const [currentAfiliadoId, setCurrentId] = useState<string>('');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   // false até o Firebase responder se existe sessão: evita mostrar a tela de login por engano
@@ -207,7 +214,11 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 pb-16 lg:pb-0">
-        {currentView === 'landing' && (
+        {taxaComissao === null && currentView !== 'lead-landing' && (
+          <div className="my-24 text-center text-xs text-[#7A7169]">Carregando…</div>
+        )}
+
+        {taxaComissao !== null && currentView === 'landing' && (
           <LandingPage
             onAfiliadoCadastrado={handleAfiliadoCadastrado}
             onGoToAreaLogada={() => setCurrentView('afiliado')}
@@ -224,15 +235,16 @@ export default function App() {
         )}
 
         {/* 1/ Área do Embaixador: Protegida por Login */}
-        {(currentView === 'afiliado' || currentView === 'admin') && !authPronto && (
+        {taxaComissao !== null && (currentView === 'afiliado' || currentView === 'admin') && !authPronto && (
           <div className="my-24 text-center text-xs text-[#7A7169]">Carregando…</div>
         )}
 
-        {currentView === 'afiliado' && authPronto && (
+        {taxaComissao !== null && currentView === 'afiliado' && authPronto && (
           currentUser ? (
             currentAfiliado && (
               <AmbassadorArea
                 afiliado={currentAfiliado}
+                taxaComissao={taxaComissao}
                 leads={leads}
                 notasFiscais={notasFiscais}
                 onAfiliadoUpdated={() => loadData()}
@@ -268,7 +280,7 @@ export default function App() {
         )}
 
         {/* 3/ Área Can Candles: Exclusiva para administradores (leo@cancandles.com.br) */}
-        {currentView === 'admin' && authPronto && (
+        {taxaComissao !== null && currentView === 'admin' && authPronto && (
           isAdmin ? (
             <AdminArea
               afiliados={afiliados}

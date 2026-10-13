@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Afiliado } from '../types';
 import { ShieldCheck, AlertCircle, FileText, CheckCircle2, Lock, X } from 'lucide-react';
+import { TAXA_COMISSAO_RESERVA } from '../services/comissaoService';
+import { formatPercentual } from '../utils/percentual';
 
 interface TermsModalProps {
   isOpen: boolean;
@@ -14,7 +16,7 @@ interface TermsModalProps {
 export const TermsModal: React.FC<TermsModalProps> = ({
   isOpen,
   afiliado,
-  taxaComissaoAtual = 10,
+  taxaComissaoAtual = TAXA_COMISSAO_RESERVA,
   onAccept,
   onClose,
   readOnly = false,
@@ -99,7 +101,7 @@ export const TermsModal: React.FC<TermsModalProps> = ({
               <span>3. Do Percentual, Apuração e Condição Sine Qua Non (100% Pago)</span>
             </h4>
             <p>
-              3.1. A taxa de comissão padrão atual está fixada em <strong>{taxaComissaoAtual}%</strong> (ou na taxa especificamente acordada no momento da campanha) sobre o valor total faturado do projeto.
+              3.1. A taxa de comissão padrão atual está fixada em <strong>{formatPercentual(taxaComissaoAtual)}</strong> (ou na taxa especificamente acordada no momento da campanha) sobre o valor total faturado do projeto.
             </p>
             <p>
               3.2. <strong>Condição Sine Qua Non:</strong> A comissão só é considerada exigível após a confirmação do pagamento de 100% (cem por cento) do valor total do pedido pelo cliente. Vendas canceladas, inadimplidas ou em processo de estorno não geram direito a qualquer repasse.
@@ -182,7 +184,7 @@ export const TermsModal: React.FC<TermsModalProps> = ({
                   className="mt-0.5 w-4 h-4 rounded border-[#D4C3B3] text-[#B86B43] focus:ring-[#B86B43] accent-[#B86B43]"
                 />
                 <span className="text-xs text-[#2C2724]">
-                  Li integralmente e estou de acordo com todos os termos, condições de comissionamento ({taxaComissaoAtual}%), prazos de envio de nota fiscal (até dia 10) e a prerrogativa da Can Candles de alterar percentuais futuros e gerir o programa com total transparência.
+                  Li integralmente e estou de acordo com todos os termos, condições de comissionamento ({formatPercentual(taxaComissaoAtual)}), prazos de envio de nota fiscal (até dia 10) e a prerrogativa da Can Candles de alterar percentuais futuros e gerir o programa com total transparência.
                 </span>
               </label>
 

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Afiliado, LeadIndicacao, NotaFiscal } from '../types';
 import { CommissionCalculator } from './CommissionCalculator';
 import { TermsModal } from './TermsModal';
+import { formatPercentual } from '../utils/percentual';
 import { saveAfiliados, getAfiliados } from '../services/storageService';
 import { 
   Sparkles, 
@@ -58,6 +59,8 @@ interface AmbassadorAreaProps {
   afiliado: Afiliado;
   leads: LeadIndicacao[];
   notasFiscais: NotaFiscal[];
+  /** Percentual de comissão em vigor para novas indicações (ex.: 10 para 10%), vindo do CRM */
+  taxaComissao: number;
   onAfiliadoUpdated: (afiliado: Afiliado) => void;
 }
 
@@ -65,8 +68,10 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
   afiliado,
   leads,
   notasFiscais,
+  taxaComissao,
   onAfiliadoUpdated,
 }) => {
+  const taxaFormatada = formatPercentual(taxaComissao);
   // Navigation within the ambassador area
   // Aba e sessão do treinamento são lembradas ao recarregar a página
   const [activeTab, setActiveTab] = useEstadoDaSessao<AbaEmbaixador>('cancandles_aba_embaixador', 'treinamento', (v) => ABAS_EMBAIXADOR.includes(v));
@@ -404,7 +409,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
               <Sparkles className="w-4 h-4 text-[#C4924A]" />
             </div>
             <div className="font-serif text-2xl sm:text-3xl font-bold text-[#2C2724]">
-              {afiliado.taxaComissao}%
+              {taxaFormatada}
             </div>
             <p className="text-[11px] text-[#7A7169] mt-1">
               Fixa sobre o valor total fechado do projeto
@@ -522,7 +527,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                   {[
                     { num: 1, title: 'Sessão 1) Por quê existimos', desc: 'Missão, essência e o mercado de bem-estar' },
                     { num: 2, title: 'Sessão 2) O que vendemos', desc: 'Identidade olfativa (R$ 2.300) e materiais' },
-                    { num: 3, title: 'Sessão 3) Comissionamento', desc: 'Regra dos 10%, calculadora e histórico' },
+                    { num: 3, title: 'Sessão 3) Comissionamento', desc: `Regra dos ${taxaFormatada}, calculadora e histórico` },
                     { num: 4, title: 'Sessão 4) Regras Importantes', desc: 'NF até dia 10, 100% pago e novo documento' },
                     { num: 5, title: 'Sessão 5) Meu Perfil & NF', desc: 'Upload de nota fiscal e termos aceitos' },
                   ].map((s) => (
@@ -737,7 +742,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                         Sessão 3 de 5
                       </span>
                       <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#2C2724] mt-0.5">
-                        Comissionamento: Regra dos 10% & Métricas
+                        Comissionamento: Regra dos {taxaFormatada} & Métricas
                       </h2>
                     </div>
 
@@ -745,10 +750,10 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                       <div className="p-4 bg-white rounded-xl border border-[#E8DFD4]">
                         <div className="flex items-center gap-2 text-xs font-bold text-[#B86B43] uppercase">
                           <DollarSign className="w-4 h-4" />
-                          <span>10% Fixo sobre o Valor Total do Projeto</span>
+                          <span>{taxaFormatada} Fixo sobre o Valor Total do Projeto</span>
                         </div>
                         <p className="text-xs text-[#665D56] mt-1">
-                          Você ganha 10% sobre o valor integral do projeto fechado (Identidade Olfativa + toda a tiragem de velas ou difusores contratada).
+                          Você ganha {taxaFormatada} sobre o valor integral do projeto fechado (Identidade Olfativa + toda a tiragem de velas ou difusores contratada).
                         </p>
                       </div>
 
@@ -760,14 +765,14 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                           <div>• 200 Velas Aromáticas Personalizadas (R$ 65/un): <strong>R$ 13.000,00</strong></div>
                           <div className="pt-1 border-t border-[#F0D5C7]">Total do Projeto: <strong>R$ 15.300,00</strong></div>
                           <div className="text-sm font-bold text-[#B86B43]">
-                            Sua Comissão (10%): R$ 1.530,00 direto na sua conta!
+                            Sua Comissão ({taxaFormatada}): {formatBRL((15300 * taxaComissao) / 100)} direto na sua conta!
                           </div>
                         </div>
                       </div>
 
                       {/* Modular Calculator inside Session 3 */}
                       <div className="pt-2">
-                        <CommissionCalculator taxaComissaoPadrao={afiliado.taxaComissao} compact={true} />
+                        <CommissionCalculator taxaComissaoPadrao={taxaComissao} compact={true} />
                       </div>
 
                       <div className="pt-4 flex justify-between">
@@ -997,7 +1002,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
             </div>
 
             {/* Interactive Simulator */}
-            <CommissionCalculator taxaComissaoPadrao={afiliado.taxaComissao} />
+            <CommissionCalculator taxaComissaoPadrao={taxaComissao} />
 
             {/* Historical Summary Section */}
             <div className="pt-6 border-t border-[#F0E7DD]">
@@ -1063,7 +1068,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-[#B86B43] shrink-0" />
                   <span>
-                    <strong>Garantia de Transparência Can Candles:</strong> Cada pedido retém de forma irretratável o percentual contratado no momento da compra. Taxa vigente para novas indicações: <strong>{afiliado.taxaComissao}%</strong>.
+                    <strong>Garantia de Transparência Can Candles:</strong> Cada pedido retém de forma irretratável o percentual contratado no momento da compra. Taxa vigente para novas indicações: <strong>{taxaFormatada}</strong>.
                   </span>
                 </div>
                 <button
@@ -1322,7 +1327,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
                         <span className="font-bold text-[#2C2724]">{formatBRL(lead.valorTotal)}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] text-[#7A7169] block">Sua Comissão Prevista (10%)</span>
+                        <span className="text-[10px] text-[#7A7169] block">Sua Comissão Prevista ({formatPercentual(lead.taxaComissaoAplicada ?? taxaComissao)})</span>
                         <span className="font-serif font-bold text-base text-[#B86B43]">
                           {lead.comissaoElegivel ? formatBRL(lead.comissaoCalculada) : 'R$ 0,00'}
                         </span>
@@ -1665,6 +1670,7 @@ export const AmbassadorArea: React.FC<AmbassadorAreaProps> = ({
       <TermsModal
         isOpen={showTermsModal}
         afiliado={afiliado}
+        taxaComissaoAtual={taxaComissao}
         onAccept={handleTermsAccept}
         onClose={() => setShowTermsModal(false)}
         readOnly={afiliado.termosAceitos}

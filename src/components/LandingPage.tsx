@@ -26,6 +26,8 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import { TAXA_COMISSAO_RESERVA } from '../services/comissaoService';
+import { formatPercentual } from '../utils/percentual';
 
 interface LandingPageProps {
   onAfiliadoCadastrado: (afiliado: Afiliado) => void;
@@ -40,7 +42,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenAuthModal,
   campanha,
 }) => {
-  const taxaComissao = campanha?.taxaComissaoPadrao || 10;
+  const taxaComissao = campanha?.taxaComissaoPadrao ?? TAXA_COMISSAO_RESERVA;
+  const taxaFormatada = formatPercentual(taxaComissao);
   
   // Unified Registration Form State
   const [nome, setNome] = useState('');
@@ -262,7 +265,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       Comissão agressiva, transparente e direta, sem enrolação.
                     </h4>
                     <p className="text-[11px] text-[#7A7169] mt-0.5 leading-relaxed">
-                      {taxaComissao}% cravados sobre o valor integral do projeto. Liquidado o pedido e emitida a NF, a comissão cai na sua conta via PIX.
+                      {taxaFormatada} cravados sobre o valor integral do projeto. Liquidado o pedido e emitida a NF, a comissão cai na sua conta via PIX.
                     </p>
                   </div>
                 </div>
@@ -287,7 +290,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                 <div className="p-3.5 rounded-xl bg-white/80 border border-[#E8DFD4] shadow-xs">
                   <div className="text-[11px] text-[#7A7169] uppercase font-semibold">Comissão Fixa</div>
-                  <div className="font-serif text-2xl font-bold text-[#B86B43] mt-0.5">{taxaComissao}%</div>
+                  <div className="font-serif text-2xl font-bold text-[#B86B43] mt-0.5">{taxaFormatada}</div>
                   <div className="text-[10px] text-[#7A7169] mt-0.5">Sobre o valor integral de cada projeto</div>
                 </div>
 
@@ -618,7 +621,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         >
                           Termos do Programa
                         </button>
-                        , comissão de {taxaComissao}% paga após 100% liquidado do cliente, emissão de NF até dia 10 e sincronização segura com Airtable e Firebase.
+                        , comissão de {taxaFormatada} paga após 100% liquidado do cliente, emissão de NF até dia 10 e sincronização segura com Airtable e Firebase.
                       </span>
                     </label>
                   </div>
@@ -676,7 +679,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Quanto você pode faturar como Embaixador?
             </h2>
             <p className="text-xs sm:text-sm text-[#7A7169] mt-2">
-              Utilize o simulador com opções de <strong>1, 10, 25, 50 ou 100 vendas por mês</strong> e comprove a força da comissão de {taxaComissao}%.
+              Utilize o simulador com opções de <strong>1, 10, 25, 50 ou 100 vendas por mês</strong> e comprove a força da comissão de {taxaFormatada}.
             </p>
           </div>
 
@@ -740,7 +743,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               4
             </div>
             <h3 className="font-serif text-lg font-semibold text-[#2C2724] mb-2">
-              {taxaComissao}% no PIX
+              {taxaFormatada} no PIX
             </h3>
             <p className="text-xs text-[#7A7169] leading-relaxed">
               Após 100% do pedido liquidado e sua NF enviada até o dia 10, sua comissão cai pontualmente na sua chave PIX cadastrada.
@@ -827,7 +830,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <p className="text-[11px] mt-0.5">CNPJ: 65.254.182/0001-72 · Programa Oficial de Embaixadores</p>
           </div>
           <div className="text-center sm:text-right text-[11px] space-y-1">
-            <p>Emissão de NF obrigatória até o dia 10 · Comissões vigentes de {taxaComissao}%</p>
+            <p>Emissão de NF obrigatória até o dia 10 · Comissões vigentes de {taxaFormatada}</p>
             <div className="flex items-center justify-center sm:justify-end gap-3 text-[#A69C93]">
               <span>www.cancandles.com.br</span>
               <span>·</span>
@@ -867,6 +870,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <WelcomeModal
           isOpen={showWelcomeModal}
           afiliado={novoAfiliado}
+          taxaComissao={taxaComissao}
           onEnterDashboard={() => {
             setShowWelcomeModal(false);
             onGoToAreaLogada();
