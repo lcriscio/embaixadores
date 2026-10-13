@@ -3,16 +3,20 @@ import { Afiliado } from '../types';
 import { Check, Copy, Flame, Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { linkIndicacao } from '../utils/linkIndicacao';
+import { formatPercentual } from '../utils/percentual';
 
 interface WelcomeModalProps {
   isOpen: boolean;
   afiliado: Afiliado;
+  /** Percentual de comissão em vigor (ex.: 10 para 10%) */
+  taxaComissao: number;
   onEnterDashboard: () => void;
 }
 
 export const WelcomeModal: React.FC<WelcomeModalProps> = ({
   isOpen,
   afiliado,
+  taxaComissao,
   onEnterDashboard,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -148,7 +152,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full bg-[#B86B43] text-white flex items-center justify-center text-[10px] font-bold">2</span>
-                    <span>Acessar o <strong>Simulador Modular</strong> para projetar seus ganhos de comissão (10%).</span>
+                    <span>Acessar o <strong>Simulador Modular</strong> para projetar seus ganhos de comissão ({formatPercentual(taxaComissao)}).</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full bg-[#B86B43] text-white flex items-center justify-center text-[10px] font-bold">3</span>
@@ -180,7 +184,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
                 </p>
 
                 <p>
-                  A Can Candles nasceu para democratizar o acesso a aromas refinados e espalhar memórias inesquecíveis através da perfumaria de ambiente. Como nosso embaixador, você terá uma comissão exclusiva de <strong>10% sobre o valor integral</strong> de cada projeto de identidade olfativa ou produção de velas/difusores fechado através da sua indicação.
+                  A Can Candles nasceu para democratizar o acesso a aromas refinados e espalhar memórias inesquecíveis através da perfumaria de ambiente. Como nosso embaixador, você terá uma comissão exclusiva de <strong>{formatPercentual(taxaComissao)} sobre o valor integral</strong> de cada projeto de identidade olfativa ou produção de velas/difusores fechado através da sua indicação.
                 </p>
 
                 <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8DFD4] my-3">

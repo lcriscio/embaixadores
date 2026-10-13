@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useEstadoDaSessao } from '../utils/useEstadoDaSessao';
+import { formatPercentual } from '../utils/percentual';
 import { Afiliado, LeadIndicacao, NotaFiscal, CampanhaConfig, AirtableConfig, AirtableSyncLog, AdminInvite } from '../types';
 import { 
   saveAfiliados, 
@@ -8,7 +9,6 @@ import {
   saveCampanhaConfig, 
   getClientesHistorico, 
   verificarDocumentoHistorico,
-  atualizarTaxaComissaoGlobal,
   getAdminInvites,
   sendAdminInvite
 } from '../services/storageService';
@@ -84,11 +84,6 @@ export const AdminArea: React.FC<AdminAreaProps> = ({
   const [afiliadoParaEditarTaxa, setAfiliadoParaEditarTaxa] = useState<Afiliado | null>(null);
   const [novaTaxaAfiliado, setNovaTaxaAfiliado] = useState(10);
 
-  // Global Campaign Form State
-  const [taxaGlobalInput, setTaxaGlobalInput] = useState(campanha.taxaComissaoPadrao);
-  const [motivoAlteracaoTaxa, setMotivoAlteracaoTaxa] = useState('Ajuste de margem estratégica Can Candles');
-  const [atualizarCadastrados, setAtualizarCadastrados] = useState(true);
-  const [campanhaSalva, setCampanhaSalva] = useState(false);
 
   // Document Verifier Tool State
   const [docConsulta, setDocConsulta] = useState('');
@@ -286,20 +281,6 @@ export const AdminArea: React.FC<AdminAreaProps> = ({
     setInvites(getAdminInvites());
     setInviteSentFeedback(`Convite enviado com sucesso para ${emailToSend}! Link de acesso gerado.`);
     setTimeout(() => setInviteSentFeedback(null), 6000);
-  };
-
-  // Handler: Atualizar Taxa Global de Comissão
-  const handleSalvarTaxaGlobal = (e: React.FormEvent) => {
-    e.preventDefault();
-    const configAtualizada = atualizarTaxaComissaoGlobal(
-      Number(taxaGlobalInput),
-      atualizarCadastrados,
-      motivoAlteracaoTaxa,
-      'Administrador Can Candles (leo@cancandles.com.br)'
-    );
-    setCampanhaSalva(true);
-    onRefreshData();
-    setTimeout(() => setCampanhaSalva(false), 4000);
   };
 
   // Handler: Alterar Status Afiliado
@@ -629,7 +610,7 @@ export const AdminArea: React.FC<AdminAreaProps> = ({
             }`}
           >
             <Settings className="w-4 h-4" />
-            <span>Taxa de Comissionamento ({campanha.taxaComissaoPadrao}%)</span>
+            <span>Taxa de Comissionamento ({formatPercentual(campanha.taxaComissaoPadrao)})</span>
           </button>
 
           <button
@@ -1302,7 +1283,7 @@ export const AdminArea: React.FC<AdminAreaProps> = ({
                   Alteração e Transparência da Taxa de Comissão
                 </h3>
                 <p className="text-xs text-[#7A7169]">
-                  Altere a taxa para mais ou para menos com reflexo imediato em todas as interfaces, preservando a transparência histórica.
+                  A taxa em vigor é definida no Airtable e vale para os pedidos criados a partir da data de vigência.
                 </p>
               </div>
 
@@ -1312,86 +1293,13 @@ export const AdminArea: React.FC<AdminAreaProps> = ({
               </div>
             </div>
 
-            {campanhaSalva && (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <span>Nova taxa de {taxaGlobalInput}% salva com sucesso e propagada nas diretrizes do programa!</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSalvarTaxaGlobal} className="bg-[#FAF7F2] p-6 rounded-2xl border border-[#E8DFD4] space-y-5 max-w-2xl">
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-[#2C2724] block mb-1">
-                    Percentual Padrão de Comissão (%)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="1"
-                      max="30"
-                      value={taxaGlobalInput}
-                      onChange={(e) => setTaxaGlobalInput(Number(e.target.value))}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-[#D9CFC4] bg-white font-bold text-[#B86B43]"
-                      required
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7A7169]">%</span>
-                  </div>
-                  <span className="text-[10px] text-[#7A7169] mt-1 block">
-                    Atualiza simulador, landing page, novos cadastros e apuração financeira.
-                  </span>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-[#2C2724] block mb-1">
-                    Motivo / Justificativa da Alteração
-                  </label>
-                  <input
-                    type="text"
-                    value={motivoAlteracaoTaxa}
-                    onChange={(e) => setMotivoAlteracaoTaxa(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#D9CFC4] bg-white"
-                    placeholder="Ex: Campanha de fim de ano, revisão de margem..."
-                    required
-                  />
-                  <span className="text-[10px] text-[#7A7169] mt-1 block">
-                    Gravado no histórico de auditoria para transparência corporativa.
-                  </span>
-                </div>
-              </div>
-
-              {/* Checkbox para atualizar também os existentes */}
-              <div className="p-3 bg-white rounded-xl border border-[#E8DFD4]">
-                <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={atualizarCadastrados}
-                    onChange={(e) => setAtualizarCadastrados(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-[#D4C3B3] text-[#B86B43] focus:ring-[#B86B43] accent-[#B86B43]"
-                  />
-                  <div>
-                    <span className="text-xs font-semibold text-[#2C2724] block">
-                      Aplicar nova taxa aos {afiliados.length} embaixadores já cadastrados
-                    </span>
-                    <span className="text-[11px] text-[#7A7169] leading-tight block mt-0.5">
-                      Se desmarcado, a nova taxa valerá apenas para novos afiliados que se cadastrarem a partir de agora.
-                    </span>
-                  </div>
-                </label>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-[#B86B43] hover:bg-[#A35C36] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
-                >
-                  Salvar Nova Taxa de Comissionamento
-                </button>
-              </div>
-
-            </form>
+            <div className="bg-[#FAF7F2] p-6 rounded-2xl border border-[#E8DFD4] space-y-2 max-w-2xl">
+              <span className="text-xs font-semibold text-[#2C2724] block">Percentual em vigor para novas indicações</span>
+              <div className="font-serif text-3xl font-bold text-[#B86B43]">{formatPercentual(campanha.taxaComissaoPadrao)}</div>
+              <p className="text-xs text-[#7A7169] leading-relaxed">
+                Este valor vem da tabela <strong>Comissionamentos</strong> do Airtable (Beneficiados = "Afiliados", "Pedido para cliente novo"). Para alterar, crie lá uma nova linha com o percentual e a data em "Vigente a partir de": o site e a comissão dos novos pedidos passam a seguir essa linha a partir da data.
+              </p>
+            </div>
 
             {/* Audit History of Commission Rates */}
             <div className="pt-4 border-t border-[#F0E7DD]">
@@ -1414,7 +1322,7 @@ export const AdminArea: React.FC<AdminAreaProps> = ({
                     {(campanha.historicoAlteracoes || []).length === 0 ? (
                       <tr>
                         <td colSpan={5} className="py-4 text-center text-xs text-[#7A7169]">
-                          Nenhuma alteração registrada além da taxa inicial de 10%.
+                          Nenhuma alteração registrada neste navegador.
                         </td>
                       </tr>
                     ) : (
@@ -1825,7 +1733,7 @@ export const AdminArea: React.FC<AdminAreaProps> = ({
                       Documento Inédito! 100% Elegível para Comissionamento.
                     </p>
                     <p className="text-[11px]">
-                      Este CNPJ nunca comprou na Can Candles. O primeiro pedido será elegível à comissão ({campanha.taxaComissaoPadrao}%) e o campo <strong>"[ Autocomplete ] Afiliado associado ao Pedido"</strong> será preenchido com o embaixador.
+                      Este CNPJ nunca comprou na Can Candles. O primeiro pedido será elegível à comissão ({formatPercentual(campanha.taxaComissaoPadrao)}) e o campo <strong>"[ Autocomplete ] Afiliado associado ao Pedido"</strong> será preenchido com o embaixador.
                     </p>
                   </div>
                 )}
